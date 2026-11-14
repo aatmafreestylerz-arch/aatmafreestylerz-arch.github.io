@@ -87,6 +87,10 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
 .pickers input[type=color]{width:44px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--line);background:var(--bg)}
 details.box summary{cursor:pointer;list-style:revert}
 details.box:not([open]){gap:0}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:640px;border-radius:18px 18px 0 0;padding:18px 16px 26px;display:flex;flex-direction:column;gap:10px;max-height:90vh;overflow:auto;border-top:1px solid var(--line)}
+.sheet h2{font-family:var(--display);font-size:20px;margin:0}
+.chip:disabled{opacity:.4;text-decoration:line-through}
 .sub-panel{border-left:3px solid var(--accent2);padding-left:10px}
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cgrid button{padding:0;border:3px solid transparent;border-radius:12px;overflow:hidden;background:var(--raise);aspect-ratio:9/16}
@@ -230,7 +234,8 @@ details.box:not([open]){gap:0}
           <img id="charThumb" alt="Your character" style="width:72px;height:96px;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(#2a2640 0 25%,#1b1828 0 50%) 0 0/16px 16px">
           <label for="charOnCb" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="charOnCb" style="width:22px;height:22px">Show my character</label>
         </div>
-        <p class="sub" style="font-size:13px">Movement</p><div class="chips" data-group="charMove"></div>
+        <div id="charSrcRow" class="grp hide"><p class="sub" style="font-size:13px">Use</p><div class="chips" data-group="charSrc"></div></div>
+        <p class="sub" style="font-size:13px">Extra movement</p><div class="chips" data-group="charMove"></div>
         <p class="sub" style="font-size:13px">Where</p><div class="chips" data-group="charPos"></div>
         <p class="sub" style="font-size:13px">Background of the picture</p><div class="chips" data-group="charCut"></div>
         <label for="charSize">Character size <span id="charSizeV"></span><input type="range" id="charSize" min="0.25" max="1" step="0.01"></label>
@@ -292,6 +297,26 @@ details.box:not([open]){gap:0}
       <div class="grp"><p class="sub">Effects (turn on as many as you like)</p><div class="chips" data-group="fx"></div></div>
       <label for="fxAmt">Effect strength <span id="fxAmtV"></span><input type="range" id="fxAmt" min="0.2" max="2.5" step="0.05"></label>
     </div>
+    <div class="scrim hide" id="exportSheet" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+      <div class="sheet">
+        <h2 id="exTitle">Create video</h2>
+        <div id="exSetup" class="grp" style="gap:10px">
+          <div class="grp"><p class="sub">Quality</p><div class="chips" id="exQ">
+            <button class="chip" data-q="720">720p HD</button><button class="chip" data-q="1080">1080p Full HD</button><button class="chip" data-q="1440">1440p 2K</button><button class="chip" data-q="2160">2160p 4K</button></div></div>
+          <div class="grp"><p class="sub">Frame rate</p><div class="chips" id="exF">
+            <button class="chip" data-f="30">30 fps</button><button class="chip" data-f="60">60 fps (smoother)</button></div></div>
+          <p class="sub" id="exInfo" style="font-size:14px"></p>
+          <button class="btn" id="exGo">Render video</button>
+          <button class="btn alt sm" id="exQuick">Quick record instead (plays the song once, works on any device)</button>
+          <button class="btn alt sm" id="exClose">Cancel</button>
+        </div>
+        <div id="exRun" class="grp hide" style="gap:10px">
+          <div class="bar"><i id="exBar"></i></div>
+          <p class="status" id="exText" role="status"></p>
+          <button class="btn alt" id="exCancel">Stop rendering</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- STEP 4 -->
@@ -321,6 +346,25 @@ details.box:not([open]){gap:0}
       <div class="cgrid" id="charGrid"></div>
       <button class="btn" id="useChar" disabled>Put this character in my lyric video</button>
     </div>
+    <div class="box">
+      <p><b>3. Make it move like a real person (AI video)</b></p>
+      <p class="sub" style="font-size:14px">A picture can only bounce and sway. For real dance moves, turn your character picture into a short dancing video with one of Google's video tools, then add it here. The app removes the green background and puts the dancer in your lyric video.</p>
+      <label for="vidPrompt">Prompt to use with your character picture<textarea id="vidPrompt" readonly style="min-height:110px;font-size:14px"></textarea></label>
+      <button class="btn alt" id="copyVidPrompt">Copy prompt</button>
+      <div class="rowb">
+        <a class="btn alt sm" href="https://vids.google.com" target="_blank" rel="noopener">Google Vids</a>
+        <a class="btn alt sm" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener">Google Flow</a>
+        <a class="btn alt sm" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a>
+      </div>
+      <ol class="sub" style="margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px">
+        <li>Open one of these tools and choose to make a video from a picture.</li>
+        <li>Add your character picture (the green-background one from step 1), paste the prompt, and create.</li>
+        <li>Download the video, then add it below.</li>
+      </ol>
+      <p class="sub" style="font-size:13px">Free allowances differ by account and change often, so use whichever tool lets you. Make a few clips and pick the best one.</p>
+      <label class="drop" for="charVidFile" style="padding:16px"><b style="font-size:15px">Add the dancing video</b><span class="sub" style="font-size:13px">Its green background is removed live</span><input id="charVidFile" type="file" accept="video/*"></label>
+      <p class="status" id="charVidStatus" role="status"></p>
+    </div>
     <details class="box" id="paidBox">
       <summary><b>Paid extras</b> <span class="sub">(need a ₹3,000 Google top-up)</span></summary>
       <p class="sub" style="font-size:13px">Only if you add credit to your Gemini paid key: make characters inside this app, and moving AI clips of your character.</p>
@@ -349,8 +393,10 @@ details.box:not([open]){gap:0}
   </section>
 </div>
 
-<script src="look.js?v=11"></script>
-<script src="animate.js?v=11"></script>
+<script src="look.js?v=12"></script>
+<script src="animate.js?v=12"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
+<script src="export.js?v=12"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -369,6 +415,7 @@ function go(n, fromHistory){
   if(n !== 2) stopTap();
   if(n === 3){ renderChips(); redraw(); setTime(); setTransport(); }
   if(n !== 3 && playing && !rec){ audio.pause(); stopLoop(); }
+  if(n !== 3){ try{ charVid.pause(); }catch(e){} }
   if(n === 4) A.enter();
   if(n !== 4){ try{ $('clipVideo').pause(); }catch(e){} }
   window.scrollTo(0,0);
@@ -399,7 +446,7 @@ function saveState(now){
   if(restoring) return;
   clearTimeout(stateT);
   const write = () => store.set('state', {
-    step: S.step, lines: S.lines, look: Object.assign({}, S.look, { photo: undefined, photoBlur: undefined, aiImg: undefined, aiBlur: undefined, videoEl: undefined, charImg: undefined, _acc: undefined, _t: undefined, _lv: undefined }), dur: S.dur,
+    step: S.step, lines: S.lines, look: Object.assign({}, S.look, { photo: undefined, photoBlur: undefined, aiImg: undefined, aiBlur: undefined, videoEl: undefined, charImg: undefined, charVid: undefined, _acc: undefined, _t: undefined, _lv: undefined }), dur: S.dur,
     title: $('vTitle').value, artist: $('vArtist').value, lang: $('lang').value, model: $('model').value,
     paste: $('paste').value, tx: S.tx || null, engine: $('engine').value, script: $('script').value
   });
@@ -720,7 +767,7 @@ function chipsFor(group){
     genkind: L.GEN_KINDS,
     ratio: Object.fromEntries(Object.entries(L.RATIOS).map(([k,v]) => [k, v.name + (v.note ? ` <span class="sub" style="font-size:12px">${v.note}</span>` : '')])),
     font: Object.fromEntries(Object.entries(L.FONTS).map(([k,v]) => [k, `<span style="font-family:${v.fam.replace(/"/g,"'")};font-weight:${v.w}">${v.name}</span>`])),
-    anim: L.ANIMS, tstyle: L.TSTYLES, align: L.ALIGNS, grade: L.GRADES, fx: L.FX, charMove: L.CHAR_MOVES, charPos: L.CHAR_POS, charCut: L.CHAR_CUT,
+    anim: L.ANIMS, tstyle: L.TSTYLES, align: L.ALIGNS, grade: L.GRADES, fx: L.FX, charMove: L.CHAR_MOVES, charPos: L.CHAR_POS, charCut: L.CHAR_CUT, charSrc: L.CHAR_SRC,
     color: Object.fromEntries(Object.entries(L.COLORS).map(([k,v]) => [k, (v[1] === 'rainbow' ? swatch('linear-gradient(90deg,#ff6b6b,#ffd43b,#69db7c,#4dabf7,#da77f2)') : v[1] === 'custom' ? swatch(cur.ink || '#ffffff') : v[1] ? swatch(v[1]) : '') + v[0]])) };
   const el = document.querySelector(`[data-group="${group}"]`); if(!el || !map[group]) return;
   el.innerHTML = Object.entries(map[group]).map(([k, label]) => {
@@ -745,7 +792,7 @@ function syncControls(){
   $('favs').innerHTML = (S.favs || []).map((f, i) => `<button class="chip" data-fav="${i}">${swatch(`linear-gradient(135deg,${f.cols[0]},${f.cols[1]},${f.cols[2]})`)}#${f.seed}</button>`).join('');
   if(L.bg === 'video') vidClipList();
 }
-function renderChips(){ ['bg','genkind','ratio','font','anim','tstyle','color','align','grade','fx','charMove','charPos','charCut'].forEach(chipsFor); syncControls(); charUI(); }
+function renderChips(){ ['bg','genkind','ratio','font','anim','tstyle','color','align','grade','fx','charMove','charPos','charCut','charSrc'].forEach(chipsFor); syncControls(); charUI(); }
 function changed(){ renderChips(); saveState(); redraw(); }
 document.querySelectorAll('[data-group]').forEach(el => el.addEventListener('click', e => {
   const b = e.target.closest('[data-k]'); if(!b) return; const g = el.dataset.group, k = b.dataset.k;
@@ -835,14 +882,15 @@ function loop(){ const lv = level(); S.look._ct = null; drawFrame(audio.currentT
 let idleRaf = 0, idleLast = 0;
 function idle(ts){
   idleRaf = 0;
-  if(S.step !== 3 || playing || rec || document.hidden || !S.look.charOn || !S.look.charImg) return;
+  if(S.step !== 3 || playing || rec || document.hidden || !S.look.charOn || !(S.look.charImg || S.look.charVid)){ if(!playing) try{ charVid.pause(); }catch(e){} return; }
+  if(S.look.charSrc === 'video' && S.look.charVid && charVid.paused) charVid.play().catch(() => {});
   if(ts - idleLast > 33){ idleLast = ts; S.look._ct = ts / 1000; drawFrame(Math.max(audio.currentTime || 0, firstLineTime()), .35 + .3 * Math.max(0, Math.sin(ts / 1000 * 3.2)), null); }
   idleRaf = requestAnimationFrame(idle);
 }
 function startIdle(){ if(!idleRaf) idleRaf = requestAnimationFrame(idle); }
 document.addEventListener('visibilitychange', startIdle);
-function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); loop(); setTransport(); }
-function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); }catch(e){} setTransport(); startIdle(); }
+function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); if(S.look.charVid) charVid.play().catch(() => {}); loop(); setTransport(); }
+function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); charVid.pause(); }catch(e){} setTransport(); startIdle(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
@@ -878,6 +926,7 @@ $('seek').addEventListener('input', () => {
   if(rec) return; seeking = true; const d = S.dur || audio.duration || 0;
   const t = d * $('seek').value / 1000; audio.currentTime = t;
   if(S.look.videoEl && bgVid.duration) bgVid.currentTime = t % bgVid.duration;
+  if(S.look.charVid && charVid.duration) charVid.currentTime = t % charVid.duration;
   $('tlabel').textContent = mmss(t) + ' / ' + mmss(d); if(!playing) drawFrame(t);
 });
 $('seek').addEventListener('change', () => { seeking = false; });
@@ -890,8 +939,8 @@ function pickType(){
   const types = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   return types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
 }
-$('record').addEventListener('click', async () => {
-  if(rec){ rec.stop(); audio.pause(); return; }
+$('record').addEventListener('click', () => { if(rec){ rec.stop(); audio.pause(); return; } openExport(); });
+async function quickRecord(){
   if(!window.MediaRecorder || !cv.captureStream){ $('recText').textContent = 'This browser cannot record video. Open the app in Chrome on Android or Safari on iPhone.'; return; }
   try{
     audioGraph(); await AC.resume(); await LOOK.loadFonts(S.look.font);
@@ -916,6 +965,66 @@ $('record').addEventListener('click', async () => {
     $('record').textContent = 'Stop and keep what is recorded';
     recTimer = setInterval(() => { if(rec && rec.state === 'recording') $('recText').textContent = 'Recording ' + fmt(audio.currentTime) + ' of ' + fmt(S.dur) + '. It takes as long as the song. Tap pause on the video to pause.'; }, 500);
   }catch(err){ rec = null; $('recText').textContent = 'Recording could not start: ' + (err.message || err); }
+}
+
+/* ---------- export sheet ---------- */
+const EX = { q: '1080', fps: 30, caps: null, ctl: null };
+try{ const v = JSON.parse(localStorage.getItem('ls.export') || 'null'); if(v){ EX.q = v.q || EX.q; EX.fps = v.fps || EX.fps; } }catch(e){}
+function exShape(){ fitCanvas(); return [cv.width, cv.height]; }
+function exInfo(){
+  document.querySelectorAll('#exQ [data-q]').forEach(b => { const ok = !EX.caps || EX.caps[b.dataset.q + '@' + EX.fps] !== false; b.disabled = !ok; b.setAttribute('aria-pressed', b.dataset.q === EX.q); });
+  document.querySelectorAll('#exF [data-f]').forEach(b => { const ok = !EX.caps || EX.caps[EX.q + '@' + b.dataset.f] !== false; b.disabled = !ok; b.setAttribute('aria-pressed', +b.dataset.f === EX.fps); });
+  const [w, h] = exShape(), [W, H] = EXPORT.dims(w, h, EX.q), d = S.dur || audio.duration || 0;
+  const mb = EXPORT.bitrate(EX.q, EX.fps) * d / 8 / 1048576;
+  const ok = !EX.caps || EX.caps[EX.q + '@' + EX.fps];
+  $('exInfo').textContent = !EXPORT.supported() ? 'This browser can\'t render videos frame by frame. Use Quick record below, or open the app in Chrome.'
+    : !EX.caps ? 'Checking what this device can make…'
+    : !ok ? 'This device can\'t make ' + EX.q + 'p at ' + EX.fps + ' fps. Pick another option.'
+    : W + ' × ' + H + ' at ' + EX.fps + ' fps, about ' + (mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB') + '. Rendering takes a few minutes' + (EX.q === '2160' || EX.fps === 60 ? ', longer for 4K and 60 fps' : '') + '. Keep this screen open.';
+  $('exGo').disabled = !EXPORT.supported() || !EX.caps || !ok;
+}
+async function openExport(){
+  if(!S.file){ $('recText').textContent = 'Load your song in step 1 first.'; return; }
+  if(playing){ audio.pause(); stopLoop(); }
+  $('exSetup').classList.remove('hide'); $('exRun').classList.add('hide'); $('exportSheet').classList.remove('hide');
+  EX.caps = null; exInfo();
+  if(EXPORT.supported()){ const [w, h] = exShape(); EX.caps = await EXPORT.capabilities(w, h);
+    if(!EX.caps[EX.q + '@' + EX.fps]){ const best = ['1080@30','720@30','1080@60','720@60','1440@30','2160@30'].find(k => EX.caps[k]); if(best){ const [q, f] = best.split('@'); EX.q = q; EX.fps = +f; } } }
+  exInfo();
+}
+$('exQ').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if(!b || b.disabled) return; EX.q = b.dataset.q; exInfo(); });
+$('exF').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(!b || b.disabled) return; EX.fps = +b.dataset.f; exInfo(); });
+$('exClose').addEventListener('click', () => { $('exportSheet').classList.add('hide'); });
+$('exQuick').addEventListener('click', () => { $('exportSheet').classList.add('hide'); quickRecord(); });
+$('exCancel').addEventListener('click', () => { if(EX.ctl) EX.ctl.abort(); });
+function seekTo(v, t){ return new Promise(res => { if(!v || !v.duration){ res(); return; } const tt = t % v.duration; if(Math.abs(v.currentTime - tt) < 1e-3){ res(); return; }
+  const done = () => { clearTimeout(to); v.removeEventListener('seeked', done); res(); }; const to = setTimeout(done, 800); v.addEventListener('seeked', done); v.currentTime = tt; }); }
+$('exGo').addEventListener('click', async () => {
+  try{ localStorage.setItem('ls.export', JSON.stringify({ q: EX.q, fps: EX.fps })); }catch(e){}
+  const [w, h] = exShape(), [W, H] = EXPORT.dims(w, h, EX.q);
+  $('exSetup').classList.add('hide'); $('exRun').classList.remove('hide'); $('exBar').style.width = '0%'; $('exText').textContent = 'Getting ready…';
+  EX.ctl = new AbortController(); let wl = null; try{ if(navigator.wakeLock) wl = await navigator.wakeLock.request('screen'); }catch(e){}
+  const useBg = S.look.bg === 'video' && S.look.videoEl, useChar = S.look.charOn && S.look.charSrc === 'video' && S.look.charVid;
+  try{ bgVid.pause(); charVid.pause(); }catch(e){}
+  await LOOK.loadFonts(S.look.font);
+  const t0 = Date.now();
+  try{
+    const blob = await EXPORT.render({ file: S.file, W, H, fps: EX.fps, q: EX.q, signal: EX.ctl.signal,
+      prepare: async t => { if(useBg) await seekTo(bgVid, t); if(useChar) await seekTo(charVid, t); },
+      draw: (c, W2, H2, t, lv, spec) => { S.look._ct = null; LOOK.frame(c, W2, H2, t, lv, spec, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt }); },
+      preview: src => { try{ ctx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){} },
+      onProgress: (i, n, eta) => { $('exBar').style.width = (i / n * 100).toFixed(1) + '%'; $('exText').textContent = 'Rendering ' + W + '×' + H + ' at ' + EX.fps + ' fps: ' + Math.round(i / n * 100) + '%' + (i > 30 ? ', about ' + mmss(eta) + ' left' : '') + '. Keep this screen open.'; } });
+    outBlob = blob; const url = URL.createObjectURL(blob);
+    const name = ($('vTitle').value.trim() || 'lyric-video').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') + '-' + EX.q + 'p' + EX.fps + '.mp4';
+    $('outVideo').src = url; $('save').href = url; $('save').download = name; $('result').classList.remove('hide');
+    $('exportSheet').classList.add('hide');
+    $('recText').textContent = 'Video ready: ' + W + '×' + H + ', ' + EX.fps + ' fps, ' + (blob.size / 1048576).toFixed(1) + ' MB, made in ' + mmss((Date.now() - t0) / 1000) + '. Tap Save video.';
+    $('result').scrollIntoView({ behavior: 'smooth' });
+  }catch(e){
+    if(e && e.name === 'AbortError'){ $('exportSheet').classList.add('hide'); $('recText').textContent = 'Rendering stopped.'; }
+    else { $('exSetup').classList.remove('hide'); $('exRun').classList.add('hide'); $('exInfo').textContent = 'Rendering failed: ' + (e && e.message || e) + '. Try a lower quality, or Quick record.'; }
+  }
+  if(wl) wl.release().catch(() => {}); EX.ctl = null; redraw();
 });
 let recTimer = 0;
 $('share').addEventListener('click', async () => {
@@ -968,9 +1077,18 @@ async function setCharLayer(blob){
     $('charThumb').src = res.canvas.toDataURL('image/png');
   }catch(e){ S.look.charImg = null; }
 }
+const charVid = document.createElement('video'); charVid.muted = true; charVid.loop = true; charVid.playsInline = true; charVid.setAttribute('playsinline', '');
+async function setCharVideo(blob){
+  if(charVid.src) URL.revokeObjectURL(charVid.src);
+  charVid.src = URL.createObjectURL(blob); S.charVidBlob = blob;
+  await new Promise(res => { const done = () => res(); charVid.addEventListener('loadeddata', done, { once:true }); charVid.addEventListener('error', done, { once:true }); setTimeout(done, 4000); });
+  if(charVid.readyState >= 2){ S.look.charVid = charVid; return true; }
+  return false;
+}
 function charUI(){
-  const has = !!S.look.charImg;
+  const has = !!(S.look.charImg || S.look.charVid);
   $('charNone').classList.toggle('hide', has); $('charCtl').classList.toggle('hide', !has);
+  $('charSrcRow').classList.toggle('hide', !S.look.charVid);
   $('charOnCb').checked = !!S.look.charOn; $('charGlowCb').checked = S.look.charGlow !== false;
   $('charSize').value = S.look.charSize; $('charSizeV').textContent = Math.round(S.look.charSize * 100) + '% of the height';
 }
@@ -1065,6 +1183,26 @@ const A = (() => {
     if(wake) wake.release().catch(() => {});
     st.busy = false; $('makeClip').textContent = 'Make a test clip'; grid();
   });
+  const VID_PROMPT = 'Animate this character dancing energetically to a folk-trap beat, moving like a real person: footwork, arm moves, hip and shoulder moves, head nods and a turn. ' +
+    'Keep the full body in frame the whole time, camera completely still. Keep the plain bright green background exactly as it is, with no shadows. No other people, no text. About 8 seconds, ending in the same pose it starts in so it loops smoothly.';
+  $('vidPrompt').value = VID_PROMPT;
+  $('copyVidPrompt').addEventListener('click', async () => {
+    let ok = false; try{ await navigator.clipboard.writeText(VID_PROMPT); ok = true; }catch(e){}
+    if(!ok){ $('vidPrompt').focus(); $('vidPrompt').select(); try{ ok = document.execCommand('copy'); }catch(e){} }
+    $('copyVidPrompt').textContent = ok ? 'Copied ✓' : 'Select the text and copy it'; setTimeout(() => { $('copyVidPrompt').textContent = 'Copy prompt'; }, 2500);
+  });
+  $('charVidFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; if(!f) return; e.target.value = '';
+    $('charVidStatus').textContent = 'Loading your dancing video…';
+    const ok = await setCharVideo(f);
+    if(!ok){ $('charVidStatus').textContent = 'This video could not be opened here. Try an MP4 file.'; return; }
+    store.set('charvid', f);
+    S.look.charSrc = 'video'; S.look.charOn = true; S.look.charMove = 'still'; if(S.look.ty > .32 && S.look.ty < .68) S.look.ty = .22; saveState();
+    $('charVidStatus').textContent = '';
+    if(S.lines.length){ go(3); setTimeout(() => { try{ $('charBox').scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
+      $('recText').textContent = 'Your dancing character is in the video. Tap ▶ to watch it with your song.'; }, 150); }
+    else $('charVidStatus').textContent = 'Dancing video ready. Load a song and lyrics in steps 1 and 2 to see it in the video.';
+  });
   $('copyPrompt').addEventListener('click', async () => {
     const t = $('freePrompt').value; let ok = false;
     try{ await navigator.clipboard.writeText(t); ok = true; }catch(e){}
@@ -1109,7 +1247,7 @@ const A = (() => {
 
 /* ---------- start ---------- */
 async function restore(){
-  const [song, st, bgimg, aibg, bgvid, favs, charlayer] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg'), store.get('aibg'), store.get('bgvid'), store.get('favs'), store.get('charlayer')]);
+  const [song, st, bgimg, aibg, bgvid, favs, charlayer, charvid] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg'), store.get('aibg'), store.get('bgvid'), store.get('favs'), store.get('charlayer'), store.get('charvid')]);
   if(song && song.blob) setSong(song.blob, song.name || 'Your song');
   if(st){
     S.lines = Array.isArray(st.lines) ? st.lines : []; S.dur = st.dur || 0; S.tx = st.tx || null;
@@ -1125,7 +1263,7 @@ async function restore(){
       $('resumeBox').classList.remove('hide');
     }
   }
-  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs; if(charlayer) await setCharLayer(charlayer);
+  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs; if(charlayer) await setCharLayer(charlayer); if(charvid) await setCharVideo(charvid); if(S.look.charSrc === 'video' && !S.look.charVid) S.look.charSrc = 'image';
   unlock(); if(S.lines.length) renderLines(); syncEngine();
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;

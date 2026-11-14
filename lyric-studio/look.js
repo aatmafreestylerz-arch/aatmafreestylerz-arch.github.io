@@ -272,8 +272,37 @@ const FX = { pulse:'Beat pulse', shake:'Camera shake', zoompulse:'Zoom on beat',
 const CHAR_MOVES = { dance:'Dance', bounce:'Bounce to beat', sway:'Sway', float:'Float', pulse:'Pulse', walk:'Side to side', jump:'Jump on beat', spin:'Turn around', still:'Still' };
 const CHAR_POS = { center:'Center', left:'Left', right:'Right' };
 const CHAR_CUT = { auto:'Remove plain background', off:'Keep its background' };
+const CHAR_SRC = { video:'Dancing video', image:'Picture' };
+/* Live background removal for a character video (green screen or any plain color). */
+let keyCv = null, keyCache = { v:null, t:-1, mode:'', w:0 };
+function keyedVideoFrame(v, mode){
+  if(keyCache.v === v && keyCache.t === v.currentTime && keyCache.mode === mode && keyCv) return keyCv;
+  const vw = v.videoWidth, vh = v.videoHeight; if(!vw || !vh) return null;
+  const sc = Math.min(1, 720 / Math.max(vw, vh)), w = Math.max(1, Math.round(vw * sc)), h = Math.max(1, Math.round(vh * sc));
+  if(!keyCv) keyCv = document.createElement('canvas'); if(keyCv.width !== w) keyCv.width = w; if(keyCv.height !== h) keyCv.height = h;
+  const g = keyCv.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, w, h); g.drawImage(v, 0, 0, w, h);
+  if(mode !== 'off'){
+    const im = g.getImageData(0, 0, w, h), d = im.data, p = Math.max(2, Math.round(Math.min(w, h) * .02));
+    let r = 0, gg = 0, b = 0, n = 0;
+    [[0,0],[w-p,0],[0,h-p],[w-p,h-p]].forEach(([x0,y0]) => { for(let y = y0; y < y0 + p; y++) for(let x = x0; x < x0 + p; x++){ const k = (y * w + x) * 4; r += d[k]; gg += d[k+1]; b += d[k+2]; n++; } });
+    r /= n; gg /= n; b /= n;
+    if(gg > r + 40 && gg > b + 40){
+      for(let k = 0; k < d.length; k += 4){ const m = Math.max(d[k], d[k+2]), ex = d[k+1] - m;
+        if(ex > 55 && d[k+1] > 70) d[k+3] = 0; else if(ex > 20){ d[k+3] = Math.round(255 * (1 - (ex - 20) / 35)); d[k+1] = m; } else if(ex > 0) d[k+1] = m + ex * .5; }
+    } else {
+      const tol = 55, t2 = tol * tol, s2 = (tol * 1.6) * (tol * 1.6);
+      for(let k = 0; k < d.length; k += 4){ const dr = d[k] - r, dg = d[k+1] - gg, db = d[k+2] - b, dd = dr * dr + dg * dg + db * db;
+        if(dd < t2) d[k+3] = 0; else if(dd < s2) d[k+3] = Math.round(255 * (Math.sqrt(dd) - tol) / (tol * .6)); }
+    }
+    g.putImageData(im, 0, 0);
+  }
+  keyCache = { v, t: v.currentTime, mode };
+  return keyCv;
+}
 function drawChar(c, W, H, t, lv, u, L){
-  const img = L.charImg; if(!img || !L.charOn) return;
+  if(!L.charOn) return;
+  const useVid = L.charSrc === 'video' && L.charVid && L.charVid.readyState >= 2;
+  const img = useVid ? keyedVideoFrame(L.charVid, L.charCut || 'auto') : L.charImg; if(!img) return;
   const iw = img.width, ih = img.height; if(!iw || !ih) return;
   if(L._ct != null) t = L._ct;
   let s = H * (L.charSize || .6) / ih; if(iw * s > W * .95) s = W * .95 / iw;
@@ -295,7 +324,7 @@ function drawChar(c, W, H, t, lv, u, L){
   c.restore();
 }
 
-function defaults(){ return { charOn:false, charMove:'dance', charPos:'center', charSize:.6, charCut:'auto', charGlow:true, bg:'sea', ratio:'9:16', cw:1080, ch:1350, font:'bold', anim:'rise', tstyle:'glow', color:'theme', ink:'#ffffff', acc:'', align:'center', grade:'none',
+function defaults(){ return { charSrc:'image', charOn:false, charMove:'dance', charPos:'center', charSize:.6, charCut:'auto', charGlow:true, bg:'sea', ratio:'9:16', cw:1080, ch:1350, font:'bold', anim:'rise', tstyle:'glow', color:'theme', ink:'#ffffff', acc:'', align:'center', grade:'none',
   tsize:1, ty:.5, speed:1, fxAmt:1, gen: randomGen(7), fx:{ pulse:true, next:true, info:true, blur:true } }; }
 
 let grainCv = null;
@@ -510,5 +539,5 @@ function loadFonts(key){
   return Promise.all(jobs);
 }
 
-window.LOOK = { CHAR_MOVES, CHAR_POS, CHAR_CUT, BG, RATIOS, FONTS, ANIMS, TSTYLES, COLORS, ALIGNS, GRADES, FX, GEN_KINDS, defaults, frame, makeBlur, loadFonts, randomGen, R };
+window.LOOK = { CHAR_SRC, CHAR_MOVES, CHAR_POS, CHAR_CUT, BG, RATIOS, FONTS, ANIMS, TSTYLES, COLORS, ALIGNS, GRADES, FX, GEN_KINDS, defaults, frame, makeBlur, loadFonts, randomGen, R };
 })();
