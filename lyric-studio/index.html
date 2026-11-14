@@ -30,7 +30,7 @@ button{cursor:pointer}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-.01em}
 .brand span{color:var(--accent)}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .steps button{border:0;background:var(--surface);color:var(--muted);padding:10px 6px;border-radius:10px;font-weight:600;font-size:14px;border-bottom:3px solid transparent}
 .steps button[aria-current="step"]{color:var(--ink);border-bottom-color:var(--accent)}
 .steps button:disabled{opacity:.45;cursor:default}
@@ -75,6 +75,13 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
 .grp{display:flex;flex-direction:column;gap:6px}
 .grp>.sub{font-size:13px;font-weight:600}
 .chip .sw{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid rgba(255,255,255,.3)}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cgrid button{padding:0;border:3px solid transparent;border-radius:12px;overflow:hidden;background:var(--raise);aspect-ratio:9/16}
+.cgrid.wide button{aspect-ratio:16/9}
+.cgrid button[aria-pressed="true"]{border-color:var(--accent)}
+.cgrid img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb{max-width:140px;border-radius:10px;display:block}
+.cost{font-size:13px;color:var(--muted)}
 .hide{display:none!important}
 </style>
 </head>
@@ -92,6 +99,7 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
     <button id="tab1" data-go="1" aria-current="step">1 Song</button>
     <button id="tab2" data-go="2" disabled>2 Lyrics</button>
     <button id="tab3" data-go="3" disabled>3 Video</button>
+    <button id="tab4" data-go="4">4 Animate</button>
   </nav>
 
   <!-- STEP 1 -->
@@ -210,9 +218,49 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
       </div>
     </div>
   </section>
+
+  <!-- STEP 4 -->
+  <section id="s4">
+    <h1>Animate you</h1>
+    <p class="sub">Turn your photo into a character, then make a moving test clip of it. This uses your paid Gemini key from step 1 (Private mode).</p>
+    <div class="box">
+      <p><b>1. Your photo</b></p>
+      <label class="drop" for="charPhoto" style="padding:14px"><b id="charPhotoTitle" style="font-size:14px">Choose a clear photo of your face</b><span class="sub">Front-facing, good light, just you</span><input id="charPhoto" type="file" accept="image/*"></label>
+      <img id="charPhotoThumb" class="thumb hide" alt="Your photo">
+    </div>
+    <div class="box">
+      <p><b>2. Make your character</b></p>
+      <div class="grp"><p class="sub">Style</p><div class="chips" id="cStyles"></div></div>
+      <div class="grp"><p class="sub">Shape</p><div class="chips" id="cRatios">
+        <button class="chip" data-r="9:16" aria-pressed="true">Vertical 9:16</button><button class="chip" data-r="16:9" aria-pressed="false">Wide 16:9</button></div></div>
+      <label for="cExtra">Extra idea (optional)<input type="text" id="cExtra" maxlength="160" placeholder="e.g. black hoodie, gold chain, dancing pose"></label>
+      <button class="btn" id="makeChar" disabled>Make 4 versions</button>
+      <p class="cost">About ₹15 for 4 pictures, charged to your paid key.</p>
+      <p class="status" id="charStatus" role="status"></p>
+      <div class="cgrid" id="charGrid"></div>
+    </div>
+    <div class="box">
+      <p><b>3. Test a moving clip</b></p>
+      <p class="sub" id="clipNeeds">Pick one of your character versions above first.</p>
+      <label for="clipLine">Lyric line this clip is for (optional)<select id="clipLine"></select></label>
+      <label for="clipPrompt">What happens in the clip<textarea id="clipPrompt" style="min-height:90px"></textarea></label>
+      <button class="btn" id="makeClip" disabled>Make a test clip</button>
+      <p class="cost">About ₹70 for one clip of up to 8 seconds at 720p. It takes 1 to 3 minutes. Keep this screen open.</p>
+      <p class="status" id="clipStatus" role="status"></p>
+      <div id="clipOut" class="hide" style="display:flex;flex-direction:column;gap:10px">
+        <div class="stage"><video id="clipVideo" controls playsinline loop></video></div>
+        <div class="rowb">
+          <button class="btn alt" id="clipWithSong">Play with my song</button>
+          <a class="btn alt" id="clipSave" download>Save clip</a>
+        </div>
+      </div>
+      <div id="clipHistory" class="grp"></div>
+    </div>
+  </section>
 </div>
 
 <script src="look.js"></script>
+<script src="animate.js"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -222,14 +270,16 @@ const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
 const fmt = t => { t = Math.max(0, t); const m = Math.floor(t/60), s = t - m*60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
 
 /* ---------- step navigation ---------- */
-const HASH = ['', 'song', 'lyrics', 'video'];
+const HASH = ['', 'song', 'lyrics', 'video', 'animate'];
 function go(n, fromHistory){
-  if(n > 1 && !S.lines.length) n = 1;
+  if(n > 1 && n < 4 && !S.lines.length) n = 1;
   S.step = n; saveState();
   if(!fromHistory && location.hash.slice(1) !== HASH[n]) location.hash = HASH[n];
-  [1,2,3].forEach(i => { $('s'+i).classList.toggle('on', i === n); i === n ? $('tab'+i).setAttribute('aria-current','step') : $('tab'+i).removeAttribute('aria-current'); });
+  [1,2,3,4].forEach(i => { $('s'+i).classList.toggle('on', i === n); i === n ? $('tab'+i).setAttribute('aria-current','step') : $('tab'+i).removeAttribute('aria-current'); });
   if(n !== 2) stopTap();
   if(n === 3){ renderChips(); redraw(); }
+  if(n === 4) A.enter();
+  if(n !== 4){ try{ $('clipVideo').pause(); }catch(e){} }
   window.scrollTo(0,0);
 }
 document.querySelector('.steps').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if(b && !b.disabled) go(Number(b.dataset.go)); });
@@ -675,6 +725,104 @@ $('share').addEventListener('click', async () => {
   else $('recText').textContent = 'Sharing is not available here. Use Save video instead.';
 });
 
+
+/* ---------- step 4: animate you ---------- */
+const A = (() => {
+  const st = { photo:null, style:'anime', ratio:'9:16', chars:[], pick:-1, busy:false, clips:[] };
+  const key = () => ($('gkeyPaid').value.trim() || $('gkey').value.trim());
+  const paid = () => !!$('gkeyPaid').value.trim();
+  const url = b => URL.createObjectURL(b);
+  function chips(){
+    $('cStyles').innerHTML = Object.entries(ANIM.STYLES).map(([k, v]) => `<button class="chip" data-s="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join('');
+    document.querySelectorAll('#cRatios [data-r]').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === st.ratio));
+    $('charGrid').classList.toggle('wide', st.ratio === '16:9');
+  }
+  function grid(){
+    $('charGrid').innerHTML = st.chars.map((c, i) => c.blob
+      ? `<button data-i="${i}" aria-pressed="${st.pick === i}" aria-label="Character version ${i + 1}"><img src="${c.url}" alt="Character version ${i + 1}"></button>`
+      : `<button disabled><span class="sub" style="display:flex;height:100%;align-items:center;justify-content:center;padding:8px;text-align:center;font-size:13px">${c.err ? escH(c.err) : 'Drawing…'}</span></button>`).join('');
+    const ok = st.pick >= 0 && st.chars[st.pick] && st.chars[st.pick].blob;
+    $('makeClip').disabled = !ok || st.busy; $('clipNeeds').classList.toggle('hide', ok);
+    $('makeChar').disabled = !st.photo || st.busy;
+  }
+  function lineOptions(){
+    const cur = $('clipLine').value;
+    $('clipLine').innerHTML = '<option value="">No specific line</option>' + S.lines.map((l, i) => `<option value="${i}">${fmt(l.t)}  ${escH(l.text.slice(0, 40))}</option>`).join('');
+    $('clipLine').value = cur;
+    if(!$('clipPrompt').value) $('clipPrompt').value = defaultPrompt();
+  }
+  function defaultPrompt(){
+    const i = $('clipLine').value, line = i !== '' && S.lines[i] ? S.lines[i].text : '';
+    return 'The character dances with high energy to a folk-trap beat, confident moves, the camera slowly circles around them, colourful stage lights pulse in time.' +
+      (line ? ' Mood of the lyric: "' + line + '".' : '') + ' Keep the same character, face and outfit throughout. No text on screen.';
+  }
+  async function saveAll(){
+    store.set('anim', { photo: st.photo, style: st.style, ratio: st.ratio, extra: $('cExtra').value, pick: st.pick,
+      chars: st.chars.filter(c => c.blob).map(c => c.blob), prompt: $('clipPrompt').value, clips: st.clips.slice(-6).map(c => ({ blob:c.blob, prompt:c.prompt, at:c.at })) });
+  }
+  function history(){
+    $('clipHistory').innerHTML = st.clips.length ? '<p class="sub" style="font-size:13px;font-weight:600">Your test clips</p>' + st.clips.slice().reverse().map((c, j) => {
+      const i = st.clips.length - 1 - j; return `<button class="btn alt sm" data-clip="${i}" style="text-align:left">▶ Clip ${i + 1} · ${new Date(c.at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })} · ${escH(c.prompt.slice(0, 50))}…</button>`; }).join('') : '';
+  }
+  function show(c){
+    $('clipVideo').src = c.url; $('clipSave').href = c.url; $('clipSave').download = 'character-clip-' + new Date(c.at).toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.mp4';
+    $('clipOut').classList.remove('hide');
+  }
+  $('charPhoto').addEventListener('change', e => { const f = e.target.files[0]; if(!f) return; st.photo = f; $('charPhotoThumb').src = url(f); $('charPhotoThumb').classList.remove('hide'); $('charPhotoTitle').textContent = 'Photo chosen. Tap to change it'; grid(); saveAll(); });
+  $('cStyles').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if(!b) return; st.style = b.dataset.s; chips(); saveAll(); });
+  $('cRatios').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if(!b) return; st.ratio = b.dataset.r; chips(); saveAll(); });
+  $('charGrid').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if(!b) return; st.pick = Number(b.dataset.i); grid(); saveAll(); });
+  $('clipLine').addEventListener('change', () => { $('clipPrompt').value = defaultPrompt(); });
+  $('cExtra').addEventListener('change', saveAll); $('clipPrompt').addEventListener('change', saveAll);
+  $('makeChar').addEventListener('click', async () => {
+    if(!st.photo || st.busy) return;
+    if(!key()){ $('charStatus').textContent = 'Add your Gemini key in step 1 first (paid key under Private mode).'; return; }
+    st.busy = true; st.pick = -1; st.chars = [0,1,2,3].map(() => ({})); grid();
+    $('charStatus').textContent = 'Drawing 4 versions of you in ' + ANIM.STYLES[st.style].name + ' style… about 20 to 60 seconds.';
+    const variants = ['', ' Slightly different pose and expression.', ' Dramatic low camera angle.', ' Big joyful smile, mid-dance.'];
+    let ok = 0, lastErr = null;
+    await Promise.all(variants.map(async (v, i) => {
+      try{ const b = await ANIM.character(key(), st.photo, st.style, ($('cExtra').value.trim() + v).trim(), st.ratio); st.chars[i] = { blob:b, url:url(b) }; ok++; if(st.pick < 0) st.pick = i; }
+      catch(e){ lastErr = e; st.chars[i] = { err: 'Not made' }; }
+      grid();
+    }));
+    st.busy = false; grid();
+    $('charStatus').textContent = ok ? `Done. Tap the version you like best (${ok} of 4 made).` : ANIM.friendly(lastErr, paid());
+    if(ok) saveAll();
+  });
+  $('makeClip').addEventListener('click', async () => {
+    const c = st.chars[st.pick]; if(!c || !c.blob || st.busy) return;
+    st.busy = true; grid(); $('makeClip').textContent = 'Making your clip…';
+    let wake = null; try{ if(navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); }catch(e){}
+    try{
+      const prompt = $('clipPrompt').value.trim() || defaultPrompt();
+      const v = await ANIM.clip(key(), c.blob, prompt, st.ratio, t => { $('clipStatus').textContent = t; });
+      const item = { blob:v, url:url(v), prompt, at:Date.now(), line: $('clipLine').value };
+      st.clips.push(item); show(item); history(); saveAll();
+      $('clipStatus').textContent = 'Clip ready. It plays without its own sound. Tap "Play with my song" to hear it with your track.';
+    }catch(e){ $('clipStatus').textContent = ANIM.friendly(e, paid()); }
+    if(wake) wake.release().catch(() => {});
+    st.busy = false; $('makeClip').textContent = 'Make a test clip'; grid();
+  });
+  $('clipHistory').addEventListener('click', e => { const b = e.target.closest('[data-clip]'); if(b) show(st.clips[Number(b.dataset.clip)]); });
+  $('clipWithSong').addEventListener('click', () => {
+    const v = $('clipVideo'); v.muted = true; v.currentTime = 0;
+    if(!S.file){ $('clipStatus').textContent = 'Load your song in step 1 to play the clip with it.'; v.play().catch(() => {}); return; }
+    const i = $('clipLine').value; audio.currentTime = i !== '' && S.lines[i] ? S.lines[i].t : 0;
+    audio.play().catch(() => {}); v.play().catch(() => {});
+  });
+  $('clipVideo').addEventListener('pause', () => { if(S.step === 4) audio.pause(); });
+  async function load(){
+    const d = await store.get('anim'); if(!d) return;
+    st.style = d.style || st.style; st.ratio = d.ratio || st.ratio; $('cExtra').value = d.extra || ''; $('clipPrompt').value = d.prompt || '';
+    if(d.photo){ st.photo = d.photo; $('charPhotoThumb').src = url(d.photo); $('charPhotoThumb').classList.remove('hide'); $('charPhotoTitle').textContent = 'Photo chosen. Tap to change it'; }
+    st.chars = (d.chars || []).map(b => ({ blob:b, url:url(b) })); st.pick = st.chars.length ? Math.min(d.pick >= 0 ? d.pick : 0, st.chars.length - 1) : -1;
+    st.clips = (d.clips || []).map(c => Object.assign({}, c, { url:url(c.blob) })); history();
+  }
+  const ready = load();
+  return { enter(){ ready.then(() => { chips(); grid(); lineOptions(); }); } };
+})();
+
 /* ---------- start ---------- */
 async function restore(){
   const [song, st, bgimg] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg')]);
@@ -696,7 +844,7 @@ async function restore(){
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;
   history.replaceState(null, '', '#song');
-  if(step > 1 && S.lines.length) go(step); else go(1, true);
+  if(step === 4 || (step > 1 && S.lines.length)) go(step); else go(1, true);
 }
 fitCanvas(); LOOK.loadFonts().then(() => drawFrame(0.7));
 restore();
