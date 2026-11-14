@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;800&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@500;800&family=Noto+Sans+Devanagari:wght@500;800&family=Noto+Serif+Telugu:wght@700&family=Noto+Serif+Devanagari:wght@700&family=Ramabhadra&family=Mallanna&family=Rozha+One&family=Kalam:wght@700&family=Bebas+Neue&family=Playfair+Display:wght@700;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@500;800&family=Noto+Sans+Devanagari:wght@500;800&family=Noto+Serif+Telugu:wght@700&family=Noto+Serif+Devanagari:wght@700&family=Ramabhadra&family=Mallanna&family=Rozha+One&family=Kalam:wght@700&family=Bebas+Neue&family=Playfair+Display:wght@700;900&family=Caveat:wght@700&family=Anton&family=NTR&family=Teko:wght@600&family=Cinzel:wght@700&family=Ramaraja&family=Martel:wght@800&family=Permanent+Marker&family=Gidugu&family=Pacifico&family=Gurajada&family=Amita&family=Lobster&family=Suravaram&family=Yatra+One&family=Baloo+2:wght@800&family=Baloo+Tammudu+2:wght@800&family=Righteous&family=Mandali&family=Orbitron:wght@800&family=Timmana&family=Khand:wght@600&family=Bangers&family=Ponnala&family=Abril+Fatface&family=Peddana&family=Eczar:wght@700&family=Bungee&family=Dhurjati&family=Sura&family=Russo+One&family=Sree+Krushnadevaraya&family=Press+Start+2P&family=Tenali+Ramakrishna&family=Hind:wght@600&display=swap" rel="stylesheet">
 <style>
 /* Layout idea: a three-step studio strip (Song, Lyrics, Video). One job per screen, big thumb targets.
    Single dark theme on purpose: it is a stage, and the video preview is the light source. */
@@ -75,6 +75,17 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
 .grp{display:flex;flex-direction:column;gap:6px}
 .grp>.sub{font-size:13px;font-weight:600}
 .chip .sw{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid rgba(255,255,255,.3)}
+.pin{position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0 8px;display:flex;flex-direction:column;gap:6px;margin:0 -2px}
+#s3 .stage{position:relative}
+#s3 .stage canvas{max-height:40vh;cursor:pointer}
+.ov{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;transition:opacity .2s}
+.ov.playing{opacity:0;pointer-events:none}
+.transport{display:flex;align-items:center;gap:8px}
+.transport input[type=range]{flex:1}
+input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:transparent}
+.pickers{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pickers input[type=color]{width:44px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--line);background:var(--bg)}
+.sub-panel{border-left:3px solid var(--accent2);padding-left:10px}
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cgrid button{padding:0;border:3px solid transparent;border-radius:12px;overflow:hidden;background:var(--raise);aspect-ratio:9/16}
 .cgrid.wide button{aspect-ratio:16/9}
@@ -187,27 +198,19 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
 
   <!-- STEP 3 -->
   <section id="s3">
-    <h1>Make the video</h1>
-    <div class="box">
-      <label for="vTitle">Song title<input type="text" id="vTitle" maxlength="60"></label>
-      <label for="vArtist">Artist<input type="text" id="vArtist" maxlength="60"></label>
-      <div class="rowb"><button class="btn alt sm" id="surprise">Surprise me: random look</button></div>
-      <div class="grp"><p class="sub">Background</p><div class="chips" data-group="bg"></div></div>
-      <div class="grp hide" id="photoRow">
-        <label class="drop" for="bgFile" style="padding:12px"><b id="bgFileTitle" style="font-size:13px">Choose a photo for the background</b><input id="bgFile" type="file" accept="image/*"></label>
+    <div class="pin" id="pin">
+      <div class="stage" id="stage"><canvas id="cv" width="720" height="1280"></canvas>
+        <button class="ov" id="playBtn" aria-label="Play">▶</button>
       </div>
-      <div class="grp"><p class="sub">Shape</p><div class="chips" data-group="ratio"></div></div>
-      <div class="grp"><p class="sub">Font</p><div class="chips" data-group="font"></div></div>
-      <div class="grp"><p class="sub">How lines appear</p><div class="chips" data-group="anim"></div></div>
-      <div class="grp"><p class="sub">Text look</p><div class="chips" data-group="tstyle"></div></div>
-      <div class="grp"><p class="sub">Text color</p><div class="chips" data-group="color"></div></div>
-      <div class="grp"><p class="sub">Text position</p><div class="chips" data-group="pos"></div></div>
-      <div class="grp"><p class="sub">Effects (tap to turn on or off)</p><div class="chips" data-group="fx"></div></div>
+      <div class="transport">
+        <button class="ic" id="playSmall" aria-label="Play or pause">▶</button>
+        <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Position in the song">
+        <span id="tlabel" class="tm" style="min-width:86px;font-size:13px">0:00 / 0:00</span>
+      </div>
     </div>
-    <div class="stage"><canvas id="cv" width="720" height="1280"></canvas></div>
     <div class="rowb">
-      <button class="btn alt" id="preview">Preview</button>
       <button class="btn" id="record">Create video</button>
+      <button class="btn alt" id="surprise">Surprise me</button>
     </div>
     <p class="status" id="recText" role="status"></p>
     <div id="result" class="hide" style="display:flex;flex-direction:column;gap:10px">
@@ -216,6 +219,60 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
         <a class="btn" id="save" download>Save video</a>
         <button class="btn alt" id="share">Share</button>
       </div>
+    </div>
+    <div class="box">
+      <label for="vTitle">Song title<input type="text" id="vTitle" maxlength="60"></label>
+      <label for="vArtist">Artist<input type="text" id="vArtist" maxlength="60"></label>
+    </div>
+    <div class="box">
+      <div class="grp"><p class="sub">Background</p><div class="chips" data-group="bg"></div></div>
+      <div class="grp hide sub-panel" id="genPanel">
+        <button class="btn sm" id="shuffle">New random background</button>
+        <p class="sub" id="genInfo" style="font-size:12px"></p>
+        <p class="sub" style="font-size:13px">Pattern</p><div class="chips" data-group="genkind"></div>
+        <p class="sub" style="font-size:13px">Colors (tap to change)</p>
+        <div class="pickers"><input type="color" id="gb1" aria-label="Background top color"><input type="color" id="gb2" aria-label="Background bottom color"><span class="sub">|</span><input type="color" id="gc0" aria-label="Color 1"><input type="color" id="gc1" aria-label="Color 2"><input type="color" id="gc2" aria-label="Color 3"><input type="color" id="gc3" aria-label="Color 4"></div>
+        <button class="btn alt sm" id="favAdd">★ Save to my backgrounds</button>
+        <div class="chips" id="favs"></div>
+      </div>
+      <div class="grp hide sub-panel" id="photoRow">
+        <label class="drop" for="bgFile" style="padding:12px"><b id="bgFileTitle" style="font-size:13px">Choose a photo for the background</b><input id="bgFile" type="file" accept="image/*"></label>
+      </div>
+      <div class="grp hide sub-panel" id="aiPanel">
+        <label for="aiDesc">Describe any background<textarea id="aiDesc" style="min-height:70px" placeholder="e.g. a rainy Hyderabad street at night with neon signs, Charminar in the distance"></textarea></label>
+        <button class="btn sm" id="aiMake">Create this background</button>
+        <p class="cost">About ₹4 per picture, on your Gemini key (paid key under Private mode).</p>
+        <p class="status" id="aiStatus" role="status"></p>
+      </div>
+      <div class="grp hide sub-panel" id="vidPanel">
+        <label class="drop" for="bgVideoFile" style="padding:12px"><b id="bgVidTitle" style="font-size:13px">Choose a video for the background</b><input id="bgVideoFile" type="file" accept="video/*"></label>
+        <div class="grp" id="vidClips"></div>
+      </div>
+      <label for="speed">Background motion speed <span id="speedV"></span><input type="range" id="speed" min="0" max="3" step="0.05"></label>
+    </div>
+    <div class="box">
+      <div class="grp"><p class="sub">Shape</p><div class="chips" data-group="ratio"></div></div>
+      <div class="rowb hide" id="customRow">
+        <label for="cw">Width (px)<input type="number" id="cw" min="240" max="1920" step="2" inputmode="numeric"></label>
+        <label for="ch">Height (px)<input type="number" id="ch" min="240" max="1920" step="2" inputmode="numeric"></label>
+      </div>
+    </div>
+    <div class="box">
+      <div class="grp"><p class="sub">Font</p><div class="chips" data-group="font"></div></div>
+      <div class="grp"><p class="sub">How lines appear</p><div class="chips" data-group="anim"></div></div>
+      <div class="grp"><p class="sub">Text look</p><div class="chips" data-group="tstyle"></div></div>
+      <div class="grp"><p class="sub">Text color</p><div class="chips" data-group="color"></div>
+        <div class="pickers hide" id="inkRow"><input type="color" id="inkPick" aria-label="Text color"><span class="sub">Any color you like</span></div></div>
+      <div class="grp"><p class="sub">Highlight color (karaoke, box, gradient, effects)</p>
+        <div class="pickers"><input type="color" id="accPick" aria-label="Highlight color"><label for="accAuto" style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="accAuto" style="width:20px;height:20px">Match background</label></div></div>
+      <div class="grp"><p class="sub">Line up text</p><div class="chips" data-group="align"></div></div>
+      <label for="tsize">Text size <span id="tsizeV"></span><input type="range" id="tsize" min="0.5" max="2.2" step="0.05"></label>
+      <label for="ty">Text height on screen (top to bottom) <span id="tyV"></span><input type="range" id="ty" min="0.1" max="0.9" step="0.01"></label>
+    </div>
+    <div class="box">
+      <div class="grp"><p class="sub">Color filter</p><div class="chips" data-group="grade"></div></div>
+      <div class="grp"><p class="sub">Effects (turn on as many as you like)</p><div class="chips" data-group="fx"></div></div>
+      <label for="fxAmt">Effect strength <span id="fxAmtV"></span><input type="range" id="fxAmt" min="0.2" max="2.5" step="0.05"></label>
     </div>
   </section>
 
@@ -277,7 +334,8 @@ function go(n, fromHistory){
   if(!fromHistory && location.hash.slice(1) !== HASH[n]) location.hash = HASH[n];
   [1,2,3,4].forEach(i => { $('s'+i).classList.toggle('on', i === n); i === n ? $('tab'+i).setAttribute('aria-current','step') : $('tab'+i).removeAttribute('aria-current'); });
   if(n !== 2) stopTap();
-  if(n === 3){ renderChips(); redraw(); }
+  if(n === 3){ renderChips(); redraw(); setTime(); setTransport(); }
+  if(n !== 3 && playing && !rec){ audio.pause(); stopLoop(); }
   if(n === 4) A.enter();
   if(n !== 4){ try{ $('clipVideo').pause(); }catch(e){} }
   window.scrollTo(0,0);
@@ -308,7 +366,7 @@ function saveState(now){
   if(restoring) return;
   clearTimeout(stateT);
   const write = () => store.set('state', {
-    step: S.step, lines: S.lines, look: Object.assign({}, S.look, { photo: undefined, photoBlur: undefined }), dur: S.dur,
+    step: S.step, lines: S.lines, look: Object.assign({}, S.look, { photo: undefined, photoBlur: undefined, aiImg: undefined, aiBlur: undefined, videoEl: undefined, _acc: undefined, _t: undefined, _lv: undefined }), dur: S.dur,
     title: $('vTitle').value, artist: $('vArtist').value, lang: $('lang').value, model: $('model').value,
     paste: $('paste').value, tx: S.tx || null, engine: $('engine').value, script: $('script').value
   });
@@ -610,55 +668,122 @@ $('tapBtn').addEventListener('click', () => {
 /* ---------- step 3: video ---------- */
 const lineAt = t => { let k = -1; for(let i = 0; i < S.lines.length; i++){ if(S.lines[i].t <= t) k = i; else break; } return k; };
 const firstLineTime = () => S.lines.length ? S.lines[0].t + .6 : 0;
-function fitCanvas(){ const r = LOOK.RATIOS[S.look.ratio] || LOOK.RATIOS['9:16']; if(cv.width !== r.w) cv.width = r.w; if(cv.height !== r.h) cv.height = r.h; }
+function fitCanvas(){
+  let r = LOOK.RATIOS[S.look.ratio] || LOOK.RATIOS['9:16'];
+  if(S.look.ratio === 'custom'){ const cl = v => Math.max(240, Math.min(1920, Math.round((+v || 1080) / 2) * 2)); r = { w: cl(S.look.cw), h: cl(S.look.ch) }; }
+  if(cv.width !== r.w) cv.width = r.w; if(cv.height !== r.h) cv.height = r.h;
+}
 function drawFrame(t, lv, spec){
   LOOK.frame(ctx, cv.width, cv.height, t, lv || 0, spec || null, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt });
 }
 function redraw(){ fitCanvas(); if(!playing) drawFrame(Math.max(audio.currentTime || 0, firstLineTime())); }
 
 /* option chips, built from the LOOK tables */
+const swatch = c => `<span class="sw" style="background:${c}"></span>`;
 function chipsFor(group){
   const L = LOOK, cur = S.look;
-  const map = { bg: Object.fromEntries(Object.entries(L.BG).map(([k,v]) => [k, `<span class="sw" style="background:${v.sw}"></span>${v.name}`])),
+  const map = {
+    bg: Object.fromEntries(Object.entries(L.BG).map(([k,v]) => [k, swatch(v.sw) + v.name])),
+    genkind: L.GEN_KINDS,
     ratio: Object.fromEntries(Object.entries(L.RATIOS).map(([k,v]) => [k, v.name + (v.note ? ` <span class="sub" style="font-size:12px">${v.note}</span>` : '')])),
     font: Object.fromEntries(Object.entries(L.FONTS).map(([k,v]) => [k, `<span style="font-family:${v.fam.replace(/"/g,"'")};font-weight:${v.w}">${v.name}</span>`])),
-    anim: L.ANIMS, tstyle: L.TSTYLES, pos: L.POS, fx: L.FX,
-    color: Object.fromEntries(Object.entries(L.COLORS).map(([k,v]) => [k, (v[1] ? `<span class="sw" style="background:${v[1]}"></span>` : '') + v[0]])) };
+    anim: L.ANIMS, tstyle: L.TSTYLES, align: L.ALIGNS, grade: L.GRADES, fx: L.FX,
+    color: Object.fromEntries(Object.entries(L.COLORS).map(([k,v]) => [k, (v[1] === 'rainbow' ? swatch('linear-gradient(90deg,#ff6b6b,#ffd43b,#69db7c,#4dabf7,#da77f2)') : v[1] === 'custom' ? swatch(cur.ink || '#ffffff') : v[1] ? swatch(v[1]) : '') + v[0]])) };
   const el = document.querySelector(`[data-group="${group}"]`);
   el.innerHTML = Object.entries(map[group]).map(([k, label]) => {
-    const on = group === 'fx' ? !!cur.fx[k] : cur[group] === k;
-    const hidden = group === 'fx' && k === 'blur' && cur.bg !== 'photo';
+    const on = group === 'fx' ? !!cur.fx[k] : group === 'genkind' ? cur.gen.kind === k : cur[group] === k;
+    const hidden = group === 'fx' && k === 'blur' && !['photo','ai'].includes(cur.bg);
     return `<button class="chip${hidden ? ' hide' : ''}" data-k="${k}" aria-pressed="${on}">${label}</button>`; }).join('');
 }
-function renderChips(){ ['bg','ratio','font','anim','tstyle','color','pos','fx'].forEach(chipsFor); $('photoRow').classList.toggle('hide', S.look.bg !== 'photo'); }
+function syncControls(){
+  const L = S.look, g = L.gen;
+  ['gb1','gb2'].forEach(id => $(id).value = g[id === 'gb1' ? 'bg1' : 'bg2']);
+  [0,1,2,3].forEach(i => $('gc' + i).value = g.cols[i] || '#ffffff');
+  $('genInfo').textContent = 'Background #' + g.seed + ' · ' + (LOOK.GEN_KINDS[g.kind] || '') + '. Every tap makes a new one, with no limit.';
+  $('speed').value = L.speed; $('speedV').textContent = L.speed === 0 ? '(still)' : '×' + (+L.speed).toFixed(2);
+  $('tsize').value = L.tsize; $('tsizeV').textContent = Math.round(L.tsize * 100) + '%';
+  $('ty').value = L.ty; $('tyV').textContent = Math.round(L.ty * 100) + '%';
+  $('fxAmt').value = L.fxAmt; $('fxAmtV').textContent = Math.round(L.fxAmt * 100) + '%';
+  $('inkPick').value = L.ink || '#ffffff'; $('accPick').value = L.acc || '#ffd166'; $('accAuto').checked = !L.acc;
+  $('cw').value = L.cw; $('ch').value = L.ch;
+  $('genPanel').classList.toggle('hide', L.bg !== 'gen'); $('photoRow').classList.toggle('hide', L.bg !== 'photo');
+  $('aiPanel').classList.toggle('hide', L.bg !== 'ai'); $('vidPanel').classList.toggle('hide', L.bg !== 'video');
+  $('customRow').classList.toggle('hide', L.ratio !== 'custom'); $('inkRow').classList.toggle('hide', L.color !== 'custom');
+  $('favs').innerHTML = (S.favs || []).map((f, i) => `<button class="chip" data-fav="${i}">${swatch(`linear-gradient(135deg,${f.cols[0]},${f.cols[1]},${f.cols[2]})`)}#${f.seed}</button>`).join('');
+  if(L.bg === 'video') vidClipList();
+}
+function renderChips(){ ['bg','genkind','ratio','font','anim','tstyle','color','align','grade','fx'].forEach(chipsFor); syncControls(); }
+function changed(){ renderChips(); saveState(); redraw(); }
 document.querySelectorAll('[data-group]').forEach(el => el.addEventListener('click', e => {
   const b = e.target.closest('[data-k]'); if(!b) return; const g = el.dataset.group, k = b.dataset.k;
   if(g === 'ratio' && rec) return;
-  if(g === 'fx') S.look.fx[k] = !S.look.fx[k]; else S.look[g] = k;
+  if(g === 'fx') S.look.fx[k] = !S.look.fx[k];
+  else if(g === 'genkind') S.look.gen = Object.assign({}, S.look.gen, { kind: k });
+  else S.look[g] = k;
   if(g === 'bg' && k === 'photo' && !S.photo) setTimeout(() => $('bgFile').click(), 50);
-  renderChips(); saveState(); redraw();
+  if(g === 'bg' && k === 'video' && !S.look.videoEl) vidClipList();
+  if(g === 'font') LOOK.loadFonts(k).then(redraw);
+  changed();
 }));
+$('shuffle').addEventListener('click', () => { S.look.gen = LOOK.randomGen(); S.look.bg = 'gen'; changed(); });
+['gb1','gb2'].forEach(id => $(id).addEventListener('input', () => { S.look.gen = Object.assign({}, S.look.gen, { [id === 'gb1' ? 'bg1' : 'bg2']: $(id).value, light: false }); saveState(); redraw(); }));
+[0,1,2,3].forEach(i => $('gc' + i).addEventListener('input', () => { const cols = S.look.gen.cols.slice(); cols[i] = $('gc' + i).value; S.look.gen = Object.assign({}, S.look.gen, { cols }); saveState(); redraw(); }));
+$('favAdd').addEventListener('click', () => { S.favs = (S.favs || []).filter(f => f.seed !== S.look.gen.seed || f.kind !== S.look.gen.kind); S.favs.push(JSON.parse(JSON.stringify(S.look.gen))); store.set('favs', S.favs); syncControls(); });
+$('favs').addEventListener('click', e => { const b = e.target.closest('[data-fav]'); if(!b) return; S.look.gen = JSON.parse(JSON.stringify(S.favs[+b.dataset.fav])); S.look.bg = 'gen'; changed(); });
+const slide = (id, key, after) => $(id).addEventListener('input', () => { S.look[key] = +$(id).value; syncControls(); saveState(); if(after) after(); redraw(); });
+slide('speed', 'speed'); slide('tsize', 'tsize'); slide('ty', 'ty'); slide('fxAmt', 'fxAmt');
+$('inkPick').addEventListener('input', () => { S.look.ink = $('inkPick').value; S.look.color = 'custom'; chipsFor('color'); saveState(); redraw(); });
+$('accPick').addEventListener('input', () => { S.look.acc = $('accPick').value; $('accAuto').checked = false; saveState(); redraw(); });
+$('accAuto').addEventListener('change', () => { S.look.acc = $('accAuto').checked ? '' : $('accPick').value; saveState(); redraw(); });
+['cw','ch'].forEach(id => $(id).addEventListener('change', () => { if(rec) return; S.look[id] = +$(id).value; S.look.ratio = 'custom'; changed(); }));
 $('surprise').addEventListener('click', () => {
   const pick = o => { const k = Object.keys(o); return k[Math.floor(Math.random() * k.length)]; };
-  const bgs = Object.keys(LOOK.BG).filter(k => k !== 'photo' || S.photo);
-  S.look.bg = bgs[Math.floor(Math.random() * bgs.length)]; S.look.font = pick(LOOK.FONTS); S.look.anim = pick(LOOK.ANIMS);
-  S.look.tstyle = pick(LOOK.TSTYLES); S.look.pos = pick(LOOK.POS);
-  S.look.color = LOOK.BG[S.look.bg].light ? (Math.random() < .5 ? 'theme' : 'black') : pick({ theme:1, white:1, gold:1, pink:1, cyan:1 });
-  ['pulse','sparkle','grain','bars'].forEach(k => S.look.fx[k] = Math.random() < .45);
-  renderChips(); saveState(); redraw();
+  const bgs = Object.keys(LOOK.BG).filter(k => (k !== 'photo' || S.photo) && (k !== 'ai' || S.look.aiImg) && (k !== 'video' || S.look.videoEl));
+  S.look.bg = Math.random() < .35 ? 'gen' : bgs[Math.floor(Math.random() * bgs.length)];
+  if(S.look.bg === 'gen') S.look.gen = LOOK.randomGen();
+  S.look.font = pick(LOOK.FONTS); S.look.anim = pick(LOOK.ANIMS); S.look.tstyle = pick(LOOK.TSTYLES); S.look.align = Math.random() < .75 ? 'center' : pick(LOOK.ALIGNS);
+  S.look.grade = Math.random() < .55 ? 'none' : pick(LOOK.GRADES); S.look.ty = [.5, .5, .62, .38, .7][Math.floor(Math.random() * 5)]; S.look.tsize = .85 + Math.random() * .4;
+  const light = S.look.bg === 'gen' ? S.look.gen.light : (LOOK.BG[S.look.bg] || {}).light;
+  S.look.color = light ? (Math.random() < .5 ? 'theme' : 'black') : pick({ theme:1, white:1, gold:1, pink:1, cyan:1, lime:1, orange:1, purple:1, rainbow:1 });
+  const keep = { next: S.look.fx.next, info: S.look.fx.info, blur: S.look.fx.blur }; S.look.fx = Object.assign({ pulse: Math.random() < .7 }, keep);
+  const extras = Object.keys(LOOK.FX).filter(k => !['next','info','blur','pulse'].includes(k)); for(let n = Math.floor(Math.random() * 4); n > 0; n--) S.look.fx[extras[Math.floor(Math.random() * extras.length)]] = true;
+  if(LOOK.FONTS[S.look.font]) LOOK.loadFonts(S.look.font).then(redraw);
+  changed();
 });
 $('bgFile').addEventListener('change', async e => {
   const f = e.target.files[0]; if(!f) return;
-  await setPhoto(f); store.set('bgimg', f); S.look.bg = 'photo'; renderChips(); saveState(); redraw();
+  await setPhoto(f); store.set('bgimg', f); S.look.bg = 'photo'; changed();
 });
+async function imgFrom(blob){ const img = new Image(); const url = URL.createObjectURL(blob); await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; }); return img; }
 async function setPhoto(blob){
-  try{
-    const img = new Image(); const url = URL.createObjectURL(blob);
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-    S.photo = img; S.look.photo = img; S.look.photoBlur = LOOK.makeBlur(img);
-    $('bgFileTitle').textContent = 'Photo set. Tap to change it';
-  }catch(e){ $('bgFileTitle').textContent = 'That photo could not be opened. Try a JPG or PNG.'; }
+  try{ const img = await imgFrom(blob); S.photo = img; S.look.photo = img; S.look.photoBlur = LOOK.makeBlur(img); $('bgFileTitle').textContent = 'Photo set. Tap to change it'; }
+  catch(e){ $('bgFileTitle').textContent = 'That photo could not be opened. Try a JPG or PNG.'; }
 }
+async function setAiBg(blob){ try{ const img = await imgFrom(blob); S.look.aiImg = img; S.look.aiBlur = LOOK.makeBlur(img); }catch(e){} }
+$('aiMake').addEventListener('click', async () => {
+  const desc = $('aiDesc').value.trim(); if(!desc){ $('aiStatus').textContent = 'Describe the background you want first.'; return; }
+  const key = $('gkeyPaid').value.trim() || $('gkey').value.trim(); if(!key){ $('aiStatus').textContent = 'Add your Gemini key in step 1 first.'; return; }
+  $('aiMake').disabled = true; $('aiStatus').textContent = 'Painting your background… about 10 to 30 seconds.';
+  try{
+    const r = S.look.ratio === 'custom' ? (S.look.cw >= S.look.ch ? '16:9' : '9:16') : S.look.ratio;
+    const blob = await ANIM.background(key, desc, r); await setAiBg(blob); store.set('aibg', blob); S.look.bg = 'ai';
+    $('aiStatus').textContent = 'Done. Describe something else and tap again for a new one.'; changed();
+  }catch(e){ $('aiStatus').textContent = ANIM.friendly(e, !!$('gkeyPaid').value.trim()); }
+  $('aiMake').disabled = false;
+});
+const bgVid = document.createElement('video'); bgVid.muted = true; bgVid.loop = true; bgVid.playsInline = true; bgVid.setAttribute('playsinline', '');
+bgVid.addEventListener('loadeddata', () => { if(!playing) redraw(); });
+async function setBgVideo(blob, label){
+  if(bgVid.src) URL.revokeObjectURL(bgVid.src);
+  bgVid.src = URL.createObjectURL(blob); S.look.videoEl = bgVid; $('bgVidTitle').textContent = (label || 'Video') + ' set. Tap to change it';
+  try{ await bgVid.play(); if(!playing) bgVid.pause(); }catch(e){}
+}
+$('bgVideoFile').addEventListener('change', async e => { const f = e.target.files[0]; if(!f) return; await setBgVideo(f, 'Video'); store.set('bgvid', f); S.look.bg = 'video'; changed(); });
+function vidClipList(){
+  const clips = A.clips();
+  $('vidClips').innerHTML = clips.length ? '<p class="sub" style="font-size:13px">Or use one of your character clips from step 4:</p>' + clips.map((c, i) => `<button class="btn alt sm" data-vc="${i}" style="text-align:left">▶ Clip ${i + 1}: ${escH(c.prompt.slice(0, 44))}…</button>`).join('') : '';
+}
+$('vidClips').addEventListener('click', async e => { const b = e.target.closest('[data-vc]'); if(!b) return; const c = A.clips()[+b.dataset.vc]; await setBgVideo(c.blob, 'Clip ' + (+b.dataset.vc + 1)); store.set('bgvid', c.blob); S.look.bg = 'video'; changed(); });
 
 let AC = null, analyser = null, dest = null, playing = false, raf = 0, levelBuf = null;
 function audioGraph(){
@@ -671,19 +796,49 @@ function audioGraph(){
 }
 function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
 function loop(){ const lv = level(); drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
-function startLoop(){ playing = true; cancelAnimationFrame(raf); loop(); }
-function stopLoop(){ playing = false; cancelAnimationFrame(raf); }
+function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); loop(); setTransport(); }
+function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); }catch(e){} setTransport(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
 ['vTitle','vArtist'].forEach(id => $(id).addEventListener('input', () => { if(!playing) drawFrame(0.7); }));
 
-$('preview').addEventListener('click', async () => {
-  if(rec) return;
-  if(playing){ audio.pause(); stopLoop(); $('preview').textContent = 'Preview'; return; }
-  audioGraph(); await AC.resume(); audio.currentTime = 0; await audio.play().catch(() => {}); startLoop(); $('preview').textContent = 'Stop preview';
+/* transport: play/pause over the preview, and a seek bar */
+let seeking = false;
+function setTransport(){
+  const on = rec ? rec.state === 'recording' : playing;
+  $('playBtn').textContent = on ? '❚❚' : '▶'; $('playSmall').textContent = on ? '❚❚' : '▶';
+  $('playBtn').classList.toggle('playing', on); $('playBtn').setAttribute('aria-label', on ? 'Pause' : 'Play');
+  $('seek').disabled = !!rec;
+}
+function setTime(){
+  const d = S.dur || audio.duration || 0, t = audio.currentTime || 0;
+  if(!seeking) $('seek').value = d ? Math.round(t / d * 1000) : 0;
+  $('tlabel').textContent = mmss(t) + ' / ' + mmss(d);
+}
+async function togglePlay(){
+  if(!S.file){ $('recText').textContent = 'Load your song in step 1 first.'; return; }
+  audioGraph(); await AC.resume();
+  if(rec){
+    if(rec.state === 'recording'){ rec.pause(); audio.pause(); stopLoop(); $('recText').textContent = 'Recording paused. Tap play to carry on.'; }
+    else if(rec.state === 'paused'){ rec.resume(); await audio.play().catch(() => {}); startLoop(); }
+    setTransport(); return;
+  }
+  if(playing){ audio.pause(); stopLoop(); return; }
+  if(audio.ended || (S.dur && audio.currentTime >= S.dur - .05)) audio.currentTime = 0;
+  await audio.play().catch(() => {}); startLoop();
+}
+$('playBtn').addEventListener('click', togglePlay); $('playSmall').addEventListener('click', togglePlay); cv.addEventListener('click', togglePlay);
+$('seek').addEventListener('input', () => {
+  if(rec) return; seeking = true; const d = S.dur || audio.duration || 0;
+  const t = d * $('seek').value / 1000; audio.currentTime = t;
+  if(S.look.videoEl && bgVid.duration) bgVid.currentTime = t % bgVid.duration;
+  $('tlabel').textContent = mmss(t) + ' / ' + mmss(d); if(!playing) drawFrame(t);
 });
-audio.addEventListener('ended', () => { if(rec) rec.stop(); else if(S.step === 3){ stopLoop(); $('preview').textContent = 'Preview'; } });
+$('seek').addEventListener('change', () => { seeking = false; });
+audio.addEventListener('timeupdate', setTime); audio.addEventListener('loadedmetadata', setTime);
+audio.addEventListener('pause', () => { if(S.step === 3 && playing && !rec){ stopLoop(); } });
+audio.addEventListener('ended', () => { if(rec) rec.stop(); else if(S.step === 3){ stopLoop(); } });
 
 let rec = null, chunks = [], outBlob = null, wake = null;
 function pickType(){
@@ -694,7 +849,7 @@ $('record').addEventListener('click', async () => {
   if(rec){ rec.stop(); audio.pause(); return; }
   if(!window.MediaRecorder || !cv.captureStream){ $('recText').textContent = 'This browser cannot record video. Open the app in Chrome on Android or Safari on iPhone.'; return; }
   try{
-    audioGraph(); await AC.resume(); await LOOK.loadFonts();
+    audioGraph(); await AC.resume(); await LOOK.loadFonts(S.look.font);
     const stream = cv.captureStream(30); dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
     const type = pickType(); chunks = [];
     rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 5e6, audioBitsPerSecond: 192000 } : undefined);
@@ -706,15 +861,15 @@ $('record').addEventListener('click', async () => {
       const url = URL.createObjectURL(outBlob), ext = mime.includes('mp4') ? 'mp4' : 'webm';
       const name = ($('vTitle').value.trim() || 'lyric-video').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') + '.' + ext;
       $('outVideo').src = url; $('save').href = url; $('save').download = name; $('result').classList.remove('hide');
-      $('record').textContent = 'Create video'; $('preview').disabled = false;
+      $('record').textContent = 'Create video'; setTransport();
       $('recText').textContent = 'Video ready (' + (outBlob.size / 1048576).toFixed(1) + ' MB, ' + ext.toUpperCase() + ').';
       $('result').scrollIntoView({ behavior: 'smooth' });
     };
     try{ if(navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); }catch(e){}
-    audio.pause(); audio.currentTime = 0; $('result').classList.add('hide'); $('preview').disabled = true; $('preview').textContent = 'Preview';
-    rec.start(1000); await audio.play(); startLoop();
+    audio.pause(); stopLoop(); audio.currentTime = 0; if(S.look.videoEl) bgVid.currentTime = 0; $('result').classList.add('hide');
+    rec.start(1000); await audio.play(); startLoop(); setTransport();
     $('record').textContent = 'Stop and keep what is recorded';
-    recTimer = setInterval(() => { $('recText').textContent = 'Recording ' + fmt(audio.currentTime) + ' of ' + fmt(S.dur) + '. It takes as long as the song. Keep this screen open.'; }, 500);
+    recTimer = setInterval(() => { if(rec && rec.state === 'recording') $('recText').textContent = 'Recording ' + fmt(audio.currentTime) + ' of ' + fmt(S.dur) + '. It takes as long as the song. Tap pause on the video to pause.'; }, 500);
   }catch(err){ rec = null; $('recText').textContent = 'Recording could not start: ' + (err.message || err); }
 });
 let recTimer = 0;
@@ -820,17 +975,18 @@ const A = (() => {
     st.clips = (d.clips || []).map(c => Object.assign({}, c, { url:url(c.blob) })); history();
   }
   const ready = load();
-  return { enter(){ ready.then(() => { chips(); grid(); lineOptions(); }); } };
+  return { enter(){ ready.then(() => { chips(); grid(); lineOptions(); }); }, clips: () => st.clips };
 })();
 
 /* ---------- start ---------- */
 async function restore(){
-  const [song, st, bgimg] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg')]);
-  if(bgimg) await setPhoto(bgimg);
+  const [song, st, bgimg, aibg, bgvid, favs] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg'), store.get('aibg'), store.get('bgvid'), store.get('favs')]);
   if(song && song.blob) setSong(song.blob, song.name || 'Your song');
   if(st){
     S.lines = Array.isArray(st.lines) ? st.lines : []; S.dur = st.dur || 0; S.tx = st.tx || null;
-    if(st.look){ const d = LOOK.defaults(); S.look = Object.assign(d, st.look, { fx: Object.assign(d.fx, st.look.fx || {}) }); }
+    if(st.look){ const d = LOOK.defaults(); const o = st.look; S.look = Object.assign(d, o, { fx: Object.assign(d.fx, o.fx || {}), gen: o.gen && o.gen.cols ? o.gen : d.gen });
+      if(o.pos && o.ty == null) S.look.ty = o.pos === 'low' ? .7 : o.pos === 'high' ? .3 : .5; delete S.look.pos;
+      if(!LOOK.BG[S.look.bg]) S.look.bg = 'sea'; if(!LOOK.FONTS[S.look.font]) S.look.font = 'bold'; if(!LOOK.ANIMS[S.look.anim]) S.look.anim = 'rise'; }
     else if(st.style && LOOK.BG[st.style]){ S.look.bg = st.style; if(st.ratio) S.look.ratio = st.ratio; }
     $('vTitle').value = st.title || ''; $('vArtist').value = st.artist || ''; $('paste').value = st.paste || '';
     if(st.lang) $('lang').value = st.lang; if(st.model) $('model').value = st.model;
@@ -840,6 +996,7 @@ async function restore(){
       $('resumeBox').classList.remove('hide');
     }
   }
+  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs;
   unlock(); if(S.lines.length) renderLines(); syncEngine();
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;

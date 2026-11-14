@@ -1,6 +1,6 @@
 // Offline cache, plus the two headers that let transcription use several
 // processor cores at once (GitHub Pages cannot send them itself).
-const CACHE = 'lyric-studio-v7';
+const CACHE = 'lyric-studio-v8';
 const SHELL = ['./', './index.html', './look.js', './animate.js', './worker.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
