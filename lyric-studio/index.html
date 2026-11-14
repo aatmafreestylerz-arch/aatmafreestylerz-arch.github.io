@@ -126,7 +126,14 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
         <label for="gkey">Gemini API key <span id="keyState" style="font-weight:400"></span>
           <input type="text" id="gkey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key from aistudio.google.com">
         </label>
-        <p class="sub" style="font-size:13px">Your key is kept only on this phone. Your song is sent to Google to be transcribed.</p>
+        <label for="privMode" style="flex-direction:row;align-items:flex-start;gap:10px;color:var(--ink)">
+          <input type="checkbox" id="privMode" style="width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--accent2)">
+          <span>Private mode, for unreleased songs<br><span class="sub" style="font-weight:400;font-size:13px">Uses your paid key, so Google doesn't use the song to improve its AI or show it to reviewers. Costs well under ₹1 per song.</span></span>
+        </label>
+        <label for="gkeyPaid" id="paidWrap" class="hide">Paid Gemini API key (from a project with billing on) <span id="paidState" style="font-weight:400"></span>
+          <input type="text" id="gkeyPaid" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the key from your paid project">
+        </label>
+        <p class="sub" style="font-size:13px" id="keyNote">Your keys are kept only on this phone. Your song is sent to Google to be transcribed.</p>
       </div>
       <label for="model" id="modelWrap">Transcription quality
         <select id="model">
@@ -316,12 +323,17 @@ const mmss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + 
 function syncEngine(){
   const g = $('engine').value === 'gemini';
   $('geminiOpts').style.display = g ? 'flex' : 'none'; $('modelWrap').style.display = g ? 'none' : '';
-  const k = $('gkey').value.trim();
-  $('keyState').textContent = g ? (k ? '· saved' : '· needed') : '';
+  const k = $('gkey').value.trim(), pk = $('gkeyPaid').value.trim(), priv = $('privMode').checked;
+  $('keyState').textContent = g ? (k ? '· saved' : (priv ? '' : '· needed')) : '';
+  $('paidWrap').classList.toggle('hide', !priv);
+  $('paidState').textContent = priv ? (pk ? '· saved' : '· needed') : '';
+  $('goTranscribe').textContent = g && priv ? 'Transcribe privately' : 'Transcribe the song';
 }
 $('engine').addEventListener('change', () => { syncEngine(); saveState(); });
 $('gkey').addEventListener('input', () => { try{ localStorage.setItem('ls.gkey', $('gkey').value.trim()); }catch(e){} syncEngine(); });
-try{ $('gkey').value = localStorage.getItem('ls.gkey') || ''; }catch(e){}
+$('gkeyPaid').addEventListener('input', () => { try{ localStorage.setItem('ls.gkeyPaid', $('gkeyPaid').value.trim()); }catch(e){} syncEngine(); });
+$('privMode').addEventListener('change', () => { try{ localStorage.setItem('ls.priv', $('privMode').checked ? '1' : ''); }catch(e){} syncEngine(); });
+try{ $('gkey').value = localStorage.getItem('ls.gkey') || ''; $('gkeyPaid').value = localStorage.getItem('ls.gkeyPaid') || ''; $('privMode').checked = localStorage.getItem('ls.priv') === '1'; }catch(e){}
 
 function wav16(samples){
   const n = samples.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
@@ -402,14 +414,23 @@ async function geminiTranscribe(samples, duration, opts, onStep){
 }
 function friendlyGemErr(e){
   const m = String(e && e.message || e);
-  if(e && e.status === 429) return 'Gemini\'s free limit was reached for now. Wait a minute and tap Transcribe again.';
+  if(e && e.status === 429) return $('privMode').checked ? 'Gemini is busy or your paid project hit its limit. Wait a minute and try again.' : 'Gemini\'s free limit was reached for now. Wait a minute and tap Transcribe again.';
+  if(/billing|prepay|credit/i.test(m)) return 'Your paid project needs billing set up first: in AI Studio, open Billing for that project and add a payment method or credit.';
   if((e && (e.status === 400 || e.status === 403)) && /key|permission|API_KEY/i.test(m)) return 'Gemini didn\'t accept the key. Copy it again from aistudio.google.com and paste it here.';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Couldn\'t reach Google. Check your internet connection and try again.';
   return 'Gemini couldn\'t transcribe this song: ' + m;
 }
 async function transcribeGemini(){
-  const key = $('gkey').value.trim();
-  if(!key){ $('err1').textContent = 'Paste your Gemini API key first.'; $('err1').classList.remove('hide'); $('gkey').focus(); return; }
+  const priv = $('privMode').checked;
+  const key = (priv ? $('gkeyPaid') : $('gkey')).value.trim();
+  if(!key){
+    $('err1').textContent = priv ? 'Private mode needs your paid key. Paste it in the box above, or switch Private mode off.' : 'Paste your Gemini API key first.';
+    $('err1').classList.remove('hide'); (priv ? $('gkeyPaid') : $('gkey')).focus(); return;
+  }
+  if(priv && key === $('gkey').value.trim()){
+    $('err1').textContent = 'The paid key is the same as your free key, so the song would not be private. Paste the key from your paid project.';
+    $('err1').classList.remove('hide'); $('gkeyPaid').focus(); return;
+  }
   $('goTranscribe').disabled = true; $('err1').classList.add('hide'); $('prog').classList.remove('hide');
   $('liveLines').innerHTML = ''; $('progEta').textContent = ''; $('stopBtn').classList.add('hide'); $('resumeBox').classList.add('hide');
   setProg(5, 'Reading the song…');
