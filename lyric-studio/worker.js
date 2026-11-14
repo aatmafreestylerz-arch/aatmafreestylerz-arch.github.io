@@ -9,7 +9,7 @@ let stopFlag = false;
 
 self.onmessage = async (e) => {
   if (e.data && e.data.type === 'stop') { stopFlag = true; return; }
-  const { audio, language, model } = e.data;
+  const { audio, language, model, startPiece } = e.data;
   stopFlag = false;
   try {
     const threads = self.crossOriginIsolated ? Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1)) : 1;
@@ -31,9 +31,10 @@ self.onmessage = async (e) => {
     const pipe = loaded[id];
     const SR = 16000, SEG = 30 * SR;
     const n = Math.max(1, Math.ceil(audio.length / SEG));
-    self.postMessage({ type: 'start', n, threads });
+    const from = Math.max(0, Math.min(n, startPiece || 0));
+    self.postMessage({ type: 'start', n, from, threads });
     const all = [];
-    for (let i = 0; i < n; i++) {
+    for (let i = from; i < n; i++) {
       if (stopFlag) break;
       const t0 = Date.now();
       const seg = audio.subarray(i * SEG, Math.min(audio.length, (i + 1) * SEG));
