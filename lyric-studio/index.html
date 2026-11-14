@@ -93,7 +93,7 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
   <!-- STEP 1 -->
   <section id="s1" class="on">
     <h1>Give me a song. Get a lyric video.</h1>
-    <p class="sub">Everything runs on this phone. Your song is never uploaded.</p>
+    <p class="sub">Pick a song, get timed lyrics, fix them, make the video.</p>
     <label class="drop" for="file">
       <b id="dropTitle">Choose your song</b>
       <span class="sub" id="dropSub">MP3, M4A or WAV</span>
@@ -110,7 +110,25 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
       <label for="lang">Language of the song
         <select id="lang"></select>
       </label>
-      <label for="model">Transcription quality
+      <label for="engine">Transcribe with
+        <select id="engine">
+          <option value="gemini">Google Gemini (best for songs)</option>
+          <option value="local">On this phone (offline, weaker)</option>
+        </select>
+      </label>
+      <div id="geminiOpts" style="display:flex;flex-direction:column;gap:12px">
+        <label for="script">Write the lyrics in
+          <select id="script">
+            <option value="native">Song's own script (తెలుగు, हिंदी…)</option>
+            <option value="roman">English letters (nuvvu naaku…)</option>
+          </select>
+        </label>
+        <label for="gkey">Gemini API key <span id="keyState" style="font-weight:400"></span>
+          <input type="text" id="gkey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key from aistudio.google.com">
+        </label>
+        <p class="sub" style="font-size:13px">Your key is kept only on this phone. Your song is sent to Google to be transcribed.</p>
+      </div>
+      <label for="model" id="modelWrap">Transcription quality
         <select id="model">
           <option value="base">Fast (about 80 MB, downloaded once)</option>
           <option value="small">Better (about 250 MB, downloaded once, slower)</option>
@@ -238,7 +256,7 @@ function saveState(now){
   const write = () => store.set('state', {
     step: S.step, lines: S.lines, style: S.style, ratio: S.ratio, dur: S.dur,
     title: $('vTitle').value, artist: $('vArtist').value, lang: $('lang').value, model: $('model').value,
-    paste: $('paste').value, tx: S.tx || null
+    paste: $('paste').value, tx: S.tx || null, engine: $('engine').value, script: $('script').value
   });
   if(now === true) write(); else stateT = setTimeout(write, 300);
 }
@@ -294,7 +312,121 @@ function chunksToLines(chunks, duration){
 let worker = null, runTimer = null, wakeT = null;
 const escH = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const mmss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
-$('goTranscribe').addEventListener('click', () => transcribe(false));
+/* ---------- Gemini transcription ---------- */
+function syncEngine(){
+  const g = $('engine').value === 'gemini';
+  $('geminiOpts').style.display = g ? 'flex' : 'none'; $('modelWrap').style.display = g ? 'none' : '';
+  const k = $('gkey').value.trim();
+  $('keyState').textContent = g ? (k ? '· saved' : '· needed') : '';
+}
+$('engine').addEventListener('change', () => { syncEngine(); saveState(); });
+$('gkey').addEventListener('input', () => { try{ localStorage.setItem('ls.gkey', $('gkey').value.trim()); }catch(e){} syncEngine(); });
+try{ $('gkey').value = localStorage.getItem('ls.gkey') || ''; }catch(e){}
+
+function wav16(samples){
+  const n = samples.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for(let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,16000,true); v.setUint32(28,32000,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,'data'); v.setUint32(40, n * 2, true);
+  for(let i = 0; i < n; i++){ const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], { type:'audio/wav' });
+}
+const toB64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+function parseTime(s){
+  if(typeof s === 'number') return s;
+  const p = String(s || '').trim().replace(/[^\d:.]/g, '').split(':').map(Number);
+  if(p.some(isNaN) || !p.length) return NaN;
+  return p.length === 3 ? p[0]*3600 + p[1]*60 + p[2] : p.length === 2 ? p[0]*60 + p[1] : p[0];
+}
+const GAPI = 'https://generativelanguage.googleapis.com/v1beta/';
+async function gemFetch(path, key, body){
+  const r = await fetch(GAPI + path, { method: body ? 'POST' : 'GET', headers: Object.assign({ 'x-goog-api-key': key }, body ? { 'Content-Type':'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!r.ok){ const err = new Error((j && j.error && j.error.message) || ('HTTP ' + r.status)); err.status = r.status; throw err; }
+  return j;
+}
+/* Pick the newest general "flash" model this key can use. */
+async function pickModels(key){
+  const j = await gemFetch('models?pageSize=200', key);
+  const ver = n => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+  return (j.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace(/^models\//, ''))
+    .filter(n => /^gemini-[\d.]+-flash/.test(n) && !/lite|image|tts|live|audio|embed|thinking|robotics|computer/.test(n))
+    .sort((a, b) => (ver(b) - ver(a)) || (/preview|exp/.test(a) - /preview|exp/.test(b)) || a.length - b.length)
+    .slice(0, 4);
+}
+async function geminiTranscribe(samples, duration, opts, onStep){
+  const key = opts.key, langName = opts.lang === 'auto' ? null : cap(opts.lang);
+  onStep('Finding the best Gemini model for your key…');
+  let models = await pickModels(key);
+  if(!models.length) models = ['gemini-flash-latest'];
+  const PART = 6 * 60 * 16000, parts = [];
+  for(let i = 0; i < samples.length; i += PART) parts.push([i / 16000, samples.subarray(i, Math.min(samples.length, i + PART))]);
+  const scriptRule = opts.script === 'roman'
+    ? 'Write the lyrics in English letters (romanised, the way people type it on WhatsApp). Do not translate.'
+    : 'Write the lyrics in the native script of the language' + (langName ? ' (' + langName + ' script)' : '') + '. Do not translate and do not romanise. English words that are actually sung stay in English.';
+  const prompt = [
+    'This audio is a song. Transcribe the sung lyrics' + (langName ? ', which are in ' + langName : '') + '.',
+    scriptRule,
+    'Return one entry per sung line, in order. "start" is when the line begins, as M:SS.s from the start of this audio.',
+    'Keep lines short enough to read on screen (under about 8 words). Skip purely instrumental parts.',
+    'Never invent or loop filler words. If a line really is repeated in the song, include each time it is sung.',
+    'If nothing is sung, return an empty list.'
+  ].join('\n');
+  const out = [];
+  for(let p = 0; p < parts.length; p++){
+    const [off, seg] = parts[p];
+    onStep(parts.length > 1 ? 'Gemini is listening: part ' + (p + 1) + ' of ' + parts.length + '…' : 'Gemini is listening to the song…');
+    const data = await toB64(wav16(seg));
+    const body = {
+      contents: [{ parts: [{ inline_data: { mime_type:'audio/wav', data } }, { text: prompt }] }],
+      generationConfig: { temperature: 0.2, responseMimeType: 'application/json',
+        responseSchema: { type:'ARRAY', items: { type:'OBJECT', properties: { start: { type:'STRING' }, text: { type:'STRING' } }, required: ['start','text'] } } }
+    };
+    let res = null, lastErr = null;
+    for(const m of models){
+      try{ res = await gemFetch('models/' + m + ':generateContent', key, body); break; }
+      catch(e){ lastErr = e; if(e.status === 400 && /key/i.test(e.message)) throw e; if(e.status === 401 || e.status === 403) throw e; }
+    }
+    if(!res) throw lastErr || new Error('No Gemini model answered.');
+    const txt = (((res.candidates || [])[0] || {}).content || { parts: [] }).parts.map(x => x.text || '').join('');
+    let arr = []; try{ arr = JSON.parse(txt); }catch(e){ const m = txt.match(/\[[\s\S]*\]/); if(m) try{ arr = JSON.parse(m[0]); }catch(_){} }
+    (Array.isArray(arr) ? arr : []).forEach(x => {
+      const t = parseTime(x.start), text = String(x.text || '').trim();
+      if(text && isFinite(t)) out.push({ t: Math.round(Math.min(duration, Math.max(0, off + t)) * 10) / 10, text });
+    });
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out;
+}
+function friendlyGemErr(e){
+  const m = String(e && e.message || e);
+  if(e && e.status === 429) return 'Gemini\'s free limit was reached for now. Wait a minute and tap Transcribe again.';
+  if((e && (e.status === 400 || e.status === 403)) && /key|permission|API_KEY/i.test(m)) return 'Gemini didn\'t accept the key. Copy it again from aistudio.google.com and paste it here.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Couldn\'t reach Google. Check your internet connection and try again.';
+  return 'Gemini couldn\'t transcribe this song: ' + m;
+}
+async function transcribeGemini(){
+  const key = $('gkey').value.trim();
+  if(!key){ $('err1').textContent = 'Paste your Gemini API key first.'; $('err1').classList.remove('hide'); $('gkey').focus(); return; }
+  $('goTranscribe').disabled = true; $('err1').classList.add('hide'); $('prog').classList.remove('hide');
+  $('liveLines').innerHTML = ''; $('progEta').textContent = ''; $('stopBtn').classList.add('hide'); $('resumeBox').classList.add('hide');
+  setProg(5, 'Reading the song…');
+  const t0 = Date.now(); clearInterval(runTimer);
+  runTimer = setInterval(() => { $('progEta').textContent = 'Working ' + mmss((Date.now() - t0) / 1000) + '. Usually under a minute. Keep this screen open.'; }, 1000);
+  try{
+    const { data, duration } = await decode16k(S.file); S.dur = duration;
+    let p = 10;
+    const lines = await geminiTranscribe(data, duration, { key, lang: $('lang').value, script: $('script').value }, msg => { p = Math.min(90, p + 25); setProg(p, msg); });
+    clearInterval(runTimer); $('progEta').textContent = '';
+    if(!lines.length) return fail('Gemini found no sung words. Check the language, or paste the lyrics below.');
+    S.lines = lines; S.tx = null; saveState(true); setProg(100, 'Done. ' + lines.length + ' lines found.');
+    $('goTranscribe').disabled = false; unlock(); renderLines(); go(2);
+  }catch(e){ fail(friendlyGemErr(e)); }
+}
+
+$('goTranscribe').addEventListener('click', () => { if($('engine').value === 'gemini') transcribeGemini(); else transcribe(false); });
 $('resumeBtn').addEventListener('click', () => transcribe(true));
 $('restartBtn').addEventListener('click', () => { S.tx = null; saveState(); transcribe(false); });
 async function transcribe(resume){
@@ -472,7 +604,7 @@ function loop(){ drawFrame(audio.currentTime, level()); if(playing) raf = reques
 function startLoop(){ playing = true; cancelAnimationFrame(raf); loop(); }
 function stopLoop(){ playing = false; cancelAnimationFrame(raf); }
 
-['vTitle','vArtist','lang','model','paste'].forEach(id => $(id).addEventListener('change', saveState));
+['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
 $('styles').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if(!b) return; S.style = b.dataset.style; saveState(); document.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', x === b)); if(!playing) drawFrame(audio.currentTime || firstLineTime()); });
 $('ratios').addEventListener('click', e => { const b = e.target.closest('[data-ratio]'); if(!b || rec) return; S.ratio = b.dataset.ratio; saveState(); document.querySelectorAll('[data-ratio]').forEach(x => x.setAttribute('aria-pressed', x === b)); fitCanvas(); if(!playing) drawFrame(audio.currentTime || firstLineTime()); });
@@ -535,12 +667,13 @@ async function restore(){
     if(st.ratio){ S.ratio = st.ratio; document.querySelectorAll('[data-ratio]').forEach(x => x.setAttribute('aria-pressed', x.dataset.ratio === S.ratio)); }
     $('vTitle').value = st.title || ''; $('vArtist').value = st.artist || ''; $('paste').value = st.paste || '';
     if(st.lang) $('lang').value = st.lang; if(st.model) $('model').value = st.model;
+    if(st.engine) $('engine').value = st.engine; if(st.script) $('script').value = st.script;
     if(S.file && S.tx && !S.tx.finished && S.tx.n && S.tx.done < S.tx.n){
       $('resumeText').textContent = 'Transcription stopped at ' + S.tx.done + ' of ' + S.tx.n + ' pieces when you left the app. Your progress is saved.';
       $('resumeBox').classList.remove('hide');
     }
   }
-  unlock(); if(S.lines.length) renderLines();
+  unlock(); if(S.lines.length) renderLines(); syncEngine();
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;
   history.replaceState(null, '', '#song');
