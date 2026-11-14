@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0c0b12">
+<title>Lyric Studio</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;800&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a three-step studio strip (Song, Lyrics, Video). One job per screen, big thumb targets.
+   Single dark theme on purpose: it is a stage, and the video preview is the light source. */
+:root{
+  --bg:#0c0b12; --surface:#171523; --raise:#221f33; --ink:#f4f1ea; --muted:#a09cb4; --line:#322e48;
+  --accent:#ff5a6e; --accent2:#8f6bff; --ok:#5fd6a0; --crit:#ff8b8b;
+  --display:"Unbounded","Trebuchet MS",sans-serif;
+  --body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI","Noto Sans Devanagari","Noto Sans Telugu",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
+.app{max-width:640px;margin:0 auto;padding:16px 16px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-.01em}
+.brand span{color:var(--accent)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.steps button{border:0;background:var(--surface);color:var(--muted);padding:10px 6px;border-radius:10px;font-weight:600;font-size:14px;border-bottom:3px solid transparent}
+.steps button[aria-current="step"]{color:var(--ink);border-bottom-color:var(--accent)}
+.steps button:disabled{opacity:.45;cursor:default}
+section{display:none;flex-direction:column;gap:14px}
+section.on{display:flex}
+h1{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.1;letter-spacing:-.02em;margin:0;text-wrap:balance}
+p{margin:0}
+.sub{color:var(--muted);font-size:14px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
+input[type=text],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px;font-size:16px;color:var(--ink);width:100%;font-weight:400}
+textarea{min-height:130px;resize:vertical}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:22px 14px;text-align:center;background:var(--surface);display:flex;flex-direction:column;gap:6px;align-items:center}
+.drop b{font-family:var(--display);font-size:15px}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.btn{border:0;border-radius:12px;padding:13px 16px;font-weight:800;background:var(--accent);color:#1a0a0e;text-align:center}
+.btn.alt{background:var(--raise);color:var(--ink);font-weight:600;border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.sm{padding:8px 11px;font-size:14px;border-radius:9px}
+.rowb{display:flex;gap:8px;flex-wrap:wrap}
+.rowb>*{flex:1}
+.bar{height:8px;background:var(--raise);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+.status{font-size:14px}
+.err{color:var(--crit)}
+.lines{display:flex;flex-direction:column;gap:8px}
+.ln{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.ln.now{border-left-color:var(--accent)}
+.ln .ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ln .tm{font-variant-numeric:tabular-nums;font-weight:800;min-width:58px;text-align:center}
+.ic{border:1px solid var(--line);background:var(--raise);border-radius:8px;min-width:40px;height:36px;padding:0 9px;font-weight:600;font-size:14px}
+.ic.del{margin-left:auto;color:var(--crit)}
+audio{width:100%}
+.tap{position:sticky;bottom:12px;background:var(--accent2);color:#fff;border:0;border-radius:16px;padding:18px 14px;font-weight:800;font-size:17px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none}
+.tap.on{display:block}
+.tap small{display:block;font-weight:400;opacity:.9;font-size:14px;margin-top:4px;overflow-wrap:anywhere}
+.stage{background:#000;border-radius:14px;overflow:hidden;display:flex;justify-content:center}
+canvas,video{max-width:100%;max-height:62vh;display:block}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;border-radius:99px;padding:8px 13px;font-size:14px;font-weight:600;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Lyric<span>Studio</span></div>
+    <span class="sub" id="songName"></span>
+  </header>
+  <nav class="steps" aria-label="Steps">
+    <button id="tab1" data-go="1" aria-current="step">1 Song</button>
+    <button id="tab2" data-go="2" disabled>2 Lyrics</button>
+    <button id="tab3" data-go="3" disabled>3 Video</button>
+  </nav>
+
+  <!-- STEP 1 -->
+  <section id="s1" class="on">
+    <h1>Give me a song. Get a lyric video.</h1>
+    <p class="sub">Everything runs on this phone. Your song is never uploaded.</p>
+    <label class="drop" for="file">
+      <b id="dropTitle">Choose your song</b>
+      <span class="sub" id="dropSub">MP3, M4A or WAV</span>
+      <input id="file" type="file" accept="audio/*,video/mp4">
+    </label>
+    <div class="box">
+      <label for="lang">Language of the song
+        <select id="lang"></select>
+      </label>
+      <label for="model">Transcription quality
+        <select id="model">
+          <option value="base">Fast (about 80 MB, downloaded once)</option>
+          <option value="small">Better (about 250 MB, downloaded once, slower)</option>
+        </select>
+      </label>
+      <button class="btn" id="goTranscribe" disabled>Transcribe the song</button>
+      <div id="prog" class="hide">
+        <div class="bar"><i id="barFill"></i></div>
+        <p class="status" id="progText" role="status"></p>
+      </div>
+      <p class="status err hide" id="err1" role="alert"></p>
+    </div>
+    <div class="box">
+      <label for="paste">Already have the lyrics? Paste them, one line per row
+        <textarea id="paste" placeholder="First line&#10;Second line&#10;Third line"></textarea>
+      </label>
+      <button class="btn alt" id="goPaste" disabled>Use these lyrics</button>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section id="s2">
+    <h1>Check the lyrics and timing</h1>
+    <p class="sub">Fix any wrong words. The time on each line is when it appears in the video.</p>
+    <audio id="audio" controls preload="auto"></audio>
+    <div class="rowb">
+      <button class="btn alt sm" id="tapStart">Set timing by tapping</button>
+      <button class="btn alt sm" id="addLine">Add a line</button>
+    </div>
+    <div class="lines" id="lines"></div>
+    <button class="btn" id="toVideo">Next: make the video</button>
+    <button class="tap" id="tapBtn">Tap<small id="tapText"></small></button>
+  </section>
+
+  <!-- STEP 3 -->
+  <section id="s3">
+    <h1>Make the video</h1>
+    <div class="box">
+      <label for="vTitle">Song title<input type="text" id="vTitle" maxlength="60"></label>
+      <label for="vArtist">Artist<input type="text" id="vArtist" maxlength="60"></label>
+      <div>
+        <p class="sub" style="margin-bottom:6px">Background</p>
+        <div class="chips" id="styles">
+          <button class="chip" data-style="sea" aria-pressed="true">Calm seaside</button>
+          <button class="chip" data-style="dj" aria-pressed="false">DJ lights</button>
+          <button class="chip" data-style="gold" aria-pressed="false">Marigold night</button>
+        </div>
+      </div>
+      <div>
+        <p class="sub" style="margin-bottom:6px">Shape</p>
+        <div class="chips" id="ratios">
+          <button class="chip" data-ratio="9:16" aria-pressed="true">Vertical 9:16</button>
+          <button class="chip" data-ratio="16:9" aria-pressed="false">Wide 16:9</button>
+        </div>
+      </div>
+    </div>
+    <div class="stage"><canvas id="cv" width="720" height="1280"></canvas></div>
+    <div class="rowb">
+      <button class="btn alt" id="preview">Preview</button>
+      <button class="btn" id="record">Create video</button>
+    </div>
+    <p class="status" id="recText" role="status"></p>
+    <div id="result" class="hide" style="display:flex;flex-direction:column;gap:10px">
+      <div class="stage"><video id="outVideo" controls playsinline></video></div>
+      <div class="rowb">
+        <a class="btn" id="save" download>Save video</a>
+        <button class="btn alt" id="share">Share</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
+const THEMES = {
+  sea:{a:'#06283d',b:'#0b6e7c',blobs:['#1fb5b0','#3a7bd5','#7fe0d0'],speed:.12,pulse:.15,ink:'#f3fbff'},
+  dj:{a:'#12041f',b:'#3a0a4f',blobs:['#ff2e88','#7c3aed','#19d3ff'],speed:.5,pulse:.6,ink:'#ffffff'},
+  gold:{a:'#120a02',b:'#4a2206',blobs:['#ffb020','#ff6a3d','#ffd98a'],speed:.25,pulse:.35,ink:'#fff7e6'}
+};
+const $ = id => document.getElementById(id);
+const S = {file:null, url:null, dur:0, lines:[], style:'sea', ratio:'9:16', step:1};
+const audio = $('audio'), cv = $('cv'), ctx = cv.getContext('2d');
+const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
+const fmt = t => { t = Math.max(0, t); const m = Math.floor(t/60), s = t - m*60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+
+/* ---------- step navigation ---------- */
+function go(n){
+  S.step = n;
+  [1,2,3].forEach(i => { $('s'+i).classList.toggle('on', i === n); i === n ? $('tab'+i).setAttribute('aria-current','step') : $('tab'+i).removeAttribute('aria-current'); });
+  if(n !== 2) stopTap();
+  if(n === 3){ fitCanvas(); if(!playing) drawFrame(audio.currentTime || firstLineTime()); }
+  window.scrollTo(0,0);
+}
+document.querySelector('.steps').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if(b && !b.disabled) go(Number(b.dataset.go)); });
+function unlock(){ $('tab2').disabled = !S.lines.length; $('tab3').disabled = !S.lines.length; }
+
+/* ---------- step 1: song ---------- */
+$('lang').innerHTML = '<option value="auto">Detect automatically</option>' + LANGS.map(([c,n]) => `<option value="${n}">${cap(n)}</option>`).join('');
+$('file').addEventListener('change', async e => {
+  const f = e.target.files[0]; if(!f) return;
+  S.file = f; if(S.url) URL.revokeObjectURL(S.url); S.url = URL.createObjectURL(f);
+  audio.src = S.url;
+  const name = f.name.replace(/\.[^.]+$/, '');
+  $('dropTitle').textContent = f.name; $('dropSub').textContent = 'Tap to choose a different song';
+  $('songName').textContent = name; if(!$('vTitle').value) $('vTitle').value = name;
+  $('goTranscribe').disabled = false; $('goPaste').disabled = false; $('err1').classList.add('hide');
+});
+audio.addEventListener('loadedmetadata', () => { S.dur = isFinite(audio.duration) ? audio.duration : 0; });
+
+async function decode16k(file){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC();
+  const buf = await ac.decodeAudioData(await file.arrayBuffer());
+  ac.close();
+  const off = new OfflineAudioContext(1, Math.ceil(buf.duration * 16000), 16000);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  const out = await off.startRendering();
+  return { data: out.getChannelData(0), duration: buf.duration };
+}
+
+/* Turn the transcriber's chunks into short on-screen lines. Pure function, tested separately. */
+function chunksToLines(chunks, duration){
+  const out = [];
+  (chunks || []).forEach((c, i) => {
+    const text = String(c.text || '').replace(/\s+/g, ' ').trim(); if(!text) return;
+    let a = c.timestamp && typeof c.timestamp[0] === 'number' ? c.timestamp[0] : (out.length ? out[out.length-1].t + 2 : 0);
+    let b = c.timestamp && typeof c.timestamp[1] === 'number' ? c.timestamp[1] : Math.min(duration || a + 4, a + 4);
+    if(b <= a) b = a + 2;
+    const words = text.split(' '), parts = []; let cur = '';
+    words.forEach(w => { if(cur && (cur + ' ' + w).length > 38){ parts.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; });
+    if(cur) parts.push(cur);
+    const total = parts.reduce((n,p) => n + p.length, 0) || 1; let used = 0;
+    parts.forEach(p => { out.push({ t: Math.round((a + (b - a) * (used / total)) * 10) / 10, text: p }); used += p.length; });
+  });
+  out.sort((x,y) => x.t - y.t);
+  return out;
+}
+
+let worker = null, runTimer = null;
+$('goTranscribe').addEventListener('click', async () => {
+  if(!S.file) return;
+  $('goTranscribe').disabled = true; $('err1').classList.add('hide'); $('prog').classList.remove('hide');
+  setProg(3, 'Reading the song…');
+  try{
+    const { data, duration } = await decode16k(S.file); S.dur = duration;
+    if(!worker){ worker = new Worker('worker.js', { type:'module' }); }
+    const t0 = Date.now();
+    worker.onerror = () => fail('The transcriber could not start on this phone. Paste the lyrics below instead and time them by tapping.');
+    worker.onmessage = ev => {
+      const m = ev.data;
+      if(m.type === 'download') setProg(5 + m.pct * .45, 'Downloading the transcriber (first time only): ' + m.pct + '%');
+      else if(m.type === 'run'){
+        clearInterval(runTimer);
+        runTimer = setInterval(() => { const s = Math.round((Date.now() - t0) / 1000); setProg(Math.min(95, 50 + s / 4), 'Listening to the song… ' + s + ' s. Keep this screen open.'); }, 1000);
+      }
+      else if(m.type === 'done'){
+        clearInterval(runTimer);
+        const lines = chunksToLines(m.chunks, S.dur);
+        if(!lines.length) return fail('No words were found in this song. Paste the lyrics below instead.');
+        S.lines = lines; saveDraft(); setProg(100, 'Done. ' + lines.length + ' lines found.');
+        $('goTranscribe').disabled = false; unlock(); renderLines(); go(2);
+      }
+      else if(m.type === 'error') fail('Transcription stopped: ' + m.message + '. You can paste the lyrics below instead.');
+    };
+    worker.postMessage({ audio: data, language: $('lang').value, model: $('model').value }, [data.buffer]);
+  }catch(err){ fail('This file could not be read as audio. Try an MP3, M4A or WAV file.'); }
+});
+function setProg(p, text){ $('barFill').style.width = Math.max(0, Math.min(100, p)) + '%'; $('progText').textContent = text; }
+function fail(msg){ clearInterval(runTimer); $('prog').classList.add('hide'); $('err1').textContent = msg; $('err1').classList.remove('hide'); $('goTranscribe').disabled = !S.file; }
+
+$('goPaste').addEventListener('click', () => {
+  const rows = $('paste').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if(!rows.length){ $('err1').textContent = 'Paste at least one line of lyrics first.'; $('err1').classList.remove('hide'); return; }
+  const d = S.dur || rows.length * 4, gap = d / (rows.length + 1);
+  S.lines = rows.map((text, i) => ({ t: Math.round(gap * (i + .5) * 10) / 10, text }));
+  saveDraft(); unlock(); renderLines(); go(2);
+});
+
+/* ---------- step 2: editor ---------- */
+function renderLines(){
+  $('lines').innerHTML = S.lines.map((l, i) => `<div class="ln" data-i="${i}">
+    <input type="text" id="line-${i}" data-text="${i}" aria-label="Line ${i+1} text">
+    <div class="ctl">
+      <button class="ic" data-play="${i}" aria-label="Play from this line">▶</button>
+      <button class="ic" data-nudge="${i}" data-by="-0.2" aria-label="Earlier">−</button>
+      <span class="tm">${fmt(l.t)}</span>
+      <button class="ic" data-nudge="${i}" data-by="0.2" aria-label="Later">+</button>
+      <button class="ic" data-here="${i}">Set to now</button>
+      <button class="ic del" data-del="${i}" aria-label="Delete line">✕</button>
+    </div></div>`).join('') || '<p class="sub">No lines yet. Add one.</p>';
+  S.lines.forEach((l, i) => { const el = $('line-' + i); if(el) el.value = l.text; });
+}
+let saveT;
+function saveDraft(){ clearTimeout(saveT); saveT = setTimeout(() => { try{ localStorage.setItem('ls.draft', JSON.stringify({ name: S.file ? S.file.name : '', lines: S.lines })); }catch(e){} }, 400); }
+$('lines').addEventListener('input', e => { const i = e.target.dataset.text; if(i !== undefined){ S.lines[i].text = e.target.value; saveDraft(); } });
+$('lines').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return; const d = b.dataset;
+  if(d.play !== undefined){ audio.currentTime = S.lines[d.play].t; audio.play().catch(() => {}); return; }
+  if(d.nudge !== undefined) S.lines[d.nudge].t = Math.max(0, Math.round((S.lines[d.nudge].t + Number(d.by)) * 10) / 10);
+  else if(d.here !== undefined) S.lines[d.here].t = Math.round(audio.currentTime * 10) / 10;
+  else if(d.del !== undefined) S.lines.splice(d.del, 1);
+  else return;
+  S.lines.sort((a,b) => a.t - b.t); saveDraft(); unlock(); renderLines();
+});
+$('addLine').addEventListener('click', () => { S.lines.push({ t: Math.round(audio.currentTime * 10) / 10, text: '' }); S.lines.sort((a,b) => a.t - b.t); saveDraft(); unlock(); renderLines(); });
+audio.addEventListener('timeupdate', () => {
+  if(S.step !== 2) return; const i = lineAt(audio.currentTime);
+  document.querySelectorAll('.ln').forEach(el => el.classList.toggle('now', Number(el.dataset.i) === i));
+});
+$('toVideo').addEventListener('click', () => { S.lines = S.lines.filter(l => l.text.trim()); renderLines(); if(S.lines.length) go(3); });
+
+/* tap timing: play the song, tap as each line starts */
+let tapI = -1;
+$('tapStart').addEventListener('click', () => {
+  if(!S.lines.length) return; tapI = 0; audio.currentTime = 0; audio.play().catch(() => {});
+  $('tapBtn').classList.add('on'); showTap();
+});
+function showTap(){ $('tapText').textContent = 'when this line starts: ' + (S.lines[tapI].text || '(empty line)'); }
+function stopTap(){ tapI = -1; $('tapBtn').classList.remove('on'); }
+$('tapBtn').addEventListener('click', () => {
+  if(tapI < 0) return;
+  S.lines[tapI].t = Math.max(0, Math.round((audio.currentTime - 0.15) * 10) / 10);
+  tapI++;
+  if(tapI >= S.lines.length){ stopTap(); S.lines.sort((a,b) => a.t - b.t); saveDraft(); renderLines(); } else showTap();
+});
+
+/* ---------- step 3: video ---------- */
+const lineAt = t => { let k = -1; for(let i = 0; i < S.lines.length; i++){ if(S.lines[i].t <= t) k = i; else break; } return k; };
+const firstLineTime = () => S.lines.length ? S.lines[0].t + .6 : 0;
+function fitCanvas(){ const v = S.ratio === '9:16'; cv.width = v ? 720 : 1280; cv.height = v ? 1280 : 720; }
+function wrap(text, maxW){
+  const words = text.split(' '), rows = []; let cur = '';
+  words.forEach(w => { const t = cur ? cur + ' ' + w : w; if(cur && ctx.measureText(t).width > maxW){ rows.push(cur); cur = w; } else cur = t; });
+  if(cur) rows.push(cur); return rows;
+}
+function drawText(text, y, size, weight, alpha, color, maxW){
+  ctx.font = `${weight} ${size}px "Hanken Grotesk","Noto Sans Devanagari","Noto Sans Telugu",system-ui,sans-serif`;
+  const rows = wrap(text, maxW), lh = size * 1.22, top = y - (rows.length - 1) * lh / 2;
+  ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = size * .35;
+  rows.forEach((r, i) => ctx.fillText(r, cv.width / 2, top + i * lh));
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  return rows.length * lh;
+}
+function drawFrame(t, level){
+  const W = cv.width, H = cv.height, th = THEMES[S.style], lv = level || 0, u = Math.min(W, H);
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, th.a); g.addColorStop(1, th.b);
+  ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  th.blobs.forEach((c, i) => {
+    const x = W * (.5 + .38 * Math.sin(t * th.speed + i * 2.1)), y = H * (.5 + .36 * Math.cos(t * th.speed * .8 + i * 1.7));
+    const r = u * (.42 + .08 * i) * (1 + lv * th.pulse);
+    const rg = ctx.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, c + 'aa'); rg.addColorStop(1, c + '00');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+  });
+  const vg = ctx.createRadialGradient(W/2, H/2, u * .3, W/2, H/2, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+  const title = $('vTitle').value.trim(), artist = $('vArtist').value.trim();
+  const i = lineAt(t), first = S.lines.length ? S.lines[0].t : 1e9;
+  if(i < 0){
+    // opening card until the first line
+    const a = Math.min(1, t / .6) * Math.min(1, Math.max(0, (first - t) / .5));
+    if(title){ ctx.font = `800 ${u * .085}px "Unbounded",sans-serif`; ctx.globalAlpha = a; ctx.fillStyle = th.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let size = u * .085; while(ctx.measureText(title).width > W * .86 && size > 18){ size -= 2; ctx.font = `800 ${size}px "Unbounded",sans-serif`; }
+      ctx.fillText(title, W/2, H * .46); ctx.globalAlpha = 1; }
+    if(artist) drawText(artist, H * .46 + u * .11, u * .045, 600, a * .85, th.ink, W * .8);
+    return;
+  }
+  const cur = S.lines[i], nxt = S.lines[i + 1];
+  const end = Math.min(nxt ? nxt.t : cur.t + 6, cur.t + 9);
+  const a = Math.max(0, Math.min(1, (t - cur.t) / .25) * Math.min(1, (end - t) / .3));
+  const rise = (1 - Math.min(1, (t - cur.t) / .35)) * u * .02;
+  const h = drawText(cur.text, H * .5 + rise, u * .082 * (1 + lv * .04), 800, a, th.ink, W * .84);
+  if(nxt && nxt.t - t < 6) drawText(nxt.text, H * .5 + h / 2 + u * .09, u * .042, 600, .38, th.ink, W * .8);
+  if(title || artist) drawText([title, artist].filter(Boolean).join('  ·  '), H - u * .09, u * .03, 600, .6, th.ink, W * .86);
+}
+
+let AC = null, analyser = null, dest = null, playing = false, raf = 0, levelBuf = null;
+function audioGraph(){
+  if(AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const src = AC.createMediaElementSource(audio);
+  analyser = AC.createAnalyser(); analyser.fftSize = 256; levelBuf = new Uint8Array(analyser.frequencyBinCount);
+  dest = AC.createMediaStreamDestination();
+  src.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
+}
+function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
+function loop(){ drawFrame(audio.currentTime, level()); if(playing) raf = requestAnimationFrame(loop); }
+function startLoop(){ playing = true; cancelAnimationFrame(raf); loop(); }
+function stopLoop(){ playing = false; cancelAnimationFrame(raf); }
+
+$('styles').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if(!b) return; S.style = b.dataset.style; document.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', x === b)); if(!playing) drawFrame(audio.currentTime || firstLineTime()); });
+$('ratios').addEventListener('click', e => { const b = e.target.closest('[data-ratio]'); if(!b || rec) return; S.ratio = b.dataset.ratio; document.querySelectorAll('[data-ratio]').forEach(x => x.setAttribute('aria-pressed', x === b)); fitCanvas(); if(!playing) drawFrame(audio.currentTime || firstLineTime()); });
+['vTitle','vArtist'].forEach(id => $(id).addEventListener('input', () => { if(!playing) drawFrame(0.7); }));
+
+$('preview').addEventListener('click', async () => {
+  if(rec) return;
+  if(playing){ audio.pause(); stopLoop(); $('preview').textContent = 'Preview'; return; }
+  audioGraph(); await AC.resume(); audio.currentTime = 0; await audio.play().catch(() => {}); startLoop(); $('preview').textContent = 'Stop preview';
+});
+audio.addEventListener('ended', () => { if(rec) rec.stop(); else if(S.step === 3){ stopLoop(); $('preview').textContent = 'Preview'; } });
+
+let rec = null, chunks = [], outBlob = null, wake = null;
+function pickType(){
+  const types = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  return types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+}
+$('record').addEventListener('click', async () => {
+  if(rec){ rec.stop(); audio.pause(); return; }
+  if(!window.MediaRecorder || !cv.captureStream){ $('recText').textContent = 'This browser cannot record video. Open the app in Chrome on Android or Safari on iPhone.'; return; }
+  try{
+    audioGraph(); await AC.resume(); await document.fonts.ready;
+    const stream = cv.captureStream(30); dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    const type = pickType(); chunks = [];
+    rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 5e6, audioBitsPerSecond: 192000 } : undefined);
+    rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      stopLoop(); clearInterval(recTimer); if(wake){ wake.release().catch(() => {}); wake = null; }
+      const mime = (rec.mimeType || type || 'video/webm').split(';')[0]; rec = null;
+      outBlob = new Blob(chunks, { type: mime });
+      const url = URL.createObjectURL(outBlob), ext = mime.includes('mp4') ? 'mp4' : 'webm';
+      const name = ($('vTitle').value.trim() || 'lyric-video').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') + '.' + ext;
+      $('outVideo').src = url; $('save').href = url; $('save').download = name; $('result').classList.remove('hide');
+      $('record').textContent = 'Create video'; $('preview').disabled = false;
+      $('recText').textContent = 'Video ready (' + (outBlob.size / 1048576).toFixed(1) + ' MB, ' + ext.toUpperCase() + ').';
+      $('result').scrollIntoView({ behavior: 'smooth' });
+    };
+    try{ if(navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); }catch(e){}
+    audio.pause(); audio.currentTime = 0; $('result').classList.add('hide'); $('preview').disabled = true; $('preview').textContent = 'Preview';
+    rec.start(1000); await audio.play(); startLoop();
+    $('record').textContent = 'Stop and keep what is recorded';
+    recTimer = setInterval(() => { $('recText').textContent = 'Recording ' + fmt(audio.currentTime) + ' of ' + fmt(S.dur) + '. It takes as long as the song. Keep this screen open.'; }, 500);
+  }catch(err){ rec = null; $('recText').textContent = 'Recording could not start: ' + (err.message || err); }
+});
+let recTimer = 0;
+$('share').addEventListener('click', async () => {
+  if(!outBlob) return;
+  const f = new File([outBlob], $('save').download, { type: outBlob.type });
+  if(navigator.canShare && navigator.canShare({ files:[f] })){ try{ await navigator.share({ files:[f], title: $('vTitle').value || 'Lyric video' }); }catch(e){} }
+  else $('recText').textContent = 'Sharing is not available here. Use Save video instead.';
+});
+
+/* ---------- start ---------- */
+try{
+  const d = JSON.parse(localStorage.getItem('ls.draft') || 'null');
+  if(d && d.lines && d.lines.length){ $('paste').value = d.lines.map(l => l.text).join('\n'); }
+}catch(e){}
+fitCanvas(); document.fonts.ready.then(() => drawFrame(0.7));
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
