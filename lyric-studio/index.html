@@ -78,8 +78,12 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
 <div class="app">
   <header>
     <div class="brand">Lyric<span>Studio</span></div>
-    <span class="sub" id="songName"></span>
+    <button class="btn sm" id="installBtn" hidden>Install app</button>
   </header>
+  <div class="box hide" id="installHelp" role="status">
+    <p id="installText"></p>
+    <button class="btn alt sm" id="installClose">Got it</button>
+  </div>
   <nav class="steps" aria-label="Steps">
     <button id="tab1" data-go="1" aria-current="step">1 Song</button>
     <button id="tab2" data-go="2" disabled>2 Lyrics</button>
@@ -109,6 +113,9 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
       <div id="prog" class="hide">
         <div class="bar"><i id="barFill"></i></div>
         <p class="status" id="progText" role="status"></p>
+        <p class="sub" id="progEta"></p>
+        <div class="lines" id="liveLines" style="margin-top:8px"></div>
+        <button class="btn alt sm" id="stopBtn" style="margin-top:10px">Stop and keep what's found</button>
       </div>
       <p class="status err hide" id="err1" role="alert"></p>
     </div>
@@ -204,7 +211,7 @@ $('file').addEventListener('change', async e => {
   audio.src = S.url;
   const name = f.name.replace(/\.[^.]+$/, '');
   $('dropTitle').textContent = f.name; $('dropSub').textContent = 'Tap to choose a different song';
-  $('songName').textContent = name; if(!$('vTitle').value) $('vTitle').value = name;
+  if(!$('vTitle').value) $('vTitle').value = name;
   $('goTranscribe').disabled = false; $('goPaste').disabled = false; $('err1').classList.add('hide');
 });
 audio.addEventListener('loadedmetadata', () => { S.dur = isFinite(audio.duration) ? audio.duration : 0; });
@@ -238,28 +245,45 @@ function chunksToLines(chunks, duration){
   return out;
 }
 
-let worker = null, runTimer = null;
+let worker = null, runTimer = null, wakeT = null;
+const escH = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mmss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 $('goTranscribe').addEventListener('click', async () => {
   if(!S.file) return;
   $('goTranscribe').disabled = true; $('err1').classList.add('hide'); $('prog').classList.remove('hide');
-  setProg(3, 'Reading the song…');
+  $('liveLines').innerHTML = ''; $('progEta').textContent = ''; $('stopBtn').disabled = false; $('stopBtn').classList.add('hide');
+  setProg(2, 'Reading the song…');
+  try{ if(navigator.wakeLock) wakeT = await navigator.wakeLock.request('screen'); }catch(e){}
   try{
     const { data, duration } = await decode16k(S.file); S.dur = duration;
     if(!worker){ worker = new Worker('worker.js', { type:'module' }); }
-    const t0 = Date.now();
+    let found = [], n = 1, done = 0, pieceMs = [], tStart = Date.now();
     worker.onerror = () => fail('The transcriber could not start on this phone. Paste the lyrics below instead and time them by tapping.');
     worker.onmessage = ev => {
       const m = ev.data;
-      if(m.type === 'download') setProg(5 + m.pct * .45, 'Downloading the transcriber (first time only): ' + m.pct + '%');
-      else if(m.type === 'run'){
+      if(m.type === 'download') setProg(2 + m.pct * .18, 'Downloading the transcriber (first time only): ' + m.pct + '%');
+      else if(m.type === 'start'){
+        n = m.n; tStart = Date.now(); $('stopBtn').classList.remove('hide');
+        setProg(20, 'Listening: piece 1 of ' + n + ' (30 seconds of song each).');
         clearInterval(runTimer);
-        runTimer = setInterval(() => { const s = Math.round((Date.now() - t0) / 1000); setProg(Math.min(95, 50 + s / 4), 'Listening to the song… ' + s + ' s. Keep this screen open.'); }, 1000);
+        runTimer = setInterval(() => {
+          const s = (Date.now() - tStart) / 1000;
+          const avg = pieceMs.length ? pieceMs.reduce((a,b) => a + b, 0) / pieceMs.length / 1000 : 0;
+          $('progEta').textContent = 'Working ' + mmss(s) + (avg ? ' · about ' + mmss(avg * (n - done)) + ' left' : ' · timing the first piece…') + '. Keep this screen open.';
+        }, 1000);
+      }
+      else if(m.type === 'piece'){
+        done = m.i; pieceMs.push(m.ms); found = found.concat(m.chunks);
+        setProg(20 + 80 * (done / n), 'Listening: ' + done + ' of ' + n + ' pieces done.');
+        const lines = chunksToLines(found, S.dur);
+        $('liveLines').innerHTML = lines.slice(-4).map(l => `<div class="ln"><span class="sub">${fmt(l.t)}</span>${escH(l.text)}</div>`).join('');
       }
       else if(m.type === 'done'){
-        clearInterval(runTimer);
+        clearInterval(runTimer); releaseWake();
         const lines = chunksToLines(m.chunks, S.dur);
-        if(!lines.length) return fail('No words were found in this song. Paste the lyrics below instead.');
-        S.lines = lines; saveDraft(); setProg(100, 'Done. ' + lines.length + ' lines found.');
+        if(!lines.length) return fail('No words were found in this song. Pick the song\'s language instead of "Detect automatically", or paste the lyrics below.');
+        S.lines = lines; saveDraft(); setProg(100, (m.stopped ? 'Stopped. ' : 'Done. ') + lines.length + ' lines found.');
+        $('progEta').textContent = ''; $('stopBtn').classList.add('hide');
         $('goTranscribe').disabled = false; unlock(); renderLines(); go(2);
       }
       else if(m.type === 'error') fail('Transcription stopped: ' + m.message + '. You can paste the lyrics below instead.');
@@ -267,8 +291,10 @@ $('goTranscribe').addEventListener('click', async () => {
     worker.postMessage({ audio: data, language: $('lang').value, model: $('model').value }, [data.buffer]);
   }catch(err){ fail('This file could not be read as audio. Try an MP3, M4A or WAV file.'); }
 });
+$('stopBtn').addEventListener('click', () => { if(worker){ worker.postMessage({ type:'stop' }); $('stopBtn').disabled = true; $('progText').textContent = 'Finishing the current piece, then stopping…'; } });
+function releaseWake(){ if(wakeT){ wakeT.release().catch(() => {}); wakeT = null; } }
 function setProg(p, text){ $('barFill').style.width = Math.max(0, Math.min(100, p)) + '%'; $('progText').textContent = text; }
-function fail(msg){ clearInterval(runTimer); $('prog').classList.add('hide'); $('err1').textContent = msg; $('err1').classList.remove('hide'); $('goTranscribe').disabled = !S.file; }
+function fail(msg){ clearInterval(runTimer); releaseWake(); $('stopBtn').classList.add('hide'); $('prog').classList.add('hide'); $('err1').textContent = msg; $('err1').classList.remove('hide'); $('goTranscribe').disabled = !S.file; }
 
 $('goPaste').addEventListener('click', () => {
   const rows = $('paste').value.split('\n').map(s => s.trim()).filter(Boolean);
@@ -448,7 +474,31 @@ try{
   if(d && d.lines && d.lines.length){ $('paste').value = d.lines.map(l => l.text).join('\n'); }
 }catch(e){}
 fitCanvas(); document.fonts.ready.then(() => drawFrame(0.7));
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+/* service worker: offline + multi-core transcription (needs one reload to take effect) */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    try{ if(!window.crossOriginIsolated && !S.file && !sessionStorage.getItem('ls.reloaded')){ sessionStorage.setItem('ls.reloaded', '1'); location.reload(); } }catch(e){}
+  });
+}
+
+/* install button */
+let installEvt = null;
+const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+if(!standalone) $('installBtn').hidden = false;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('installBtn').hidden = false; });
+window.addEventListener('appinstalled', () => { $('installBtn').hidden = true; $('installHelp').classList.add('hide'); });
+$('installBtn').addEventListener('click', async () => {
+  if(installEvt){ installEvt.prompt(); try{ await installEvt.userChoice; }catch(e){} installEvt = null; return; }
+  const ua = navigator.userAgent;
+  let msg = 'Open your browser menu and choose "Add to Home screen" or "Install app".';
+  if(/iPhone|iPad|iPod/.test(ua)) msg = 'In Safari, tap the Share button, then "Add to Home Screen". (This only works in Safari on iPhone.)';
+  else if(/EdgA\//.test(ua)) msg = 'In Edge, tap the menu ☰ at the bottom right, then "Add to phone". If you don\'t see it, open this page in Chrome and use menu ⋮ → "Install app".';
+  else if(/SamsungBrowser/.test(ua)) msg = 'In Samsung Internet, tap the menu ☰, then "Add page to" → "Home screen".';
+  else if(/Chrome\//.test(ua)) msg = 'In Chrome, tap the menu ⋮ at the top right, then "Install app" or "Add to Home screen".';
+  $('installText').textContent = msg; $('installHelp').classList.remove('hide');
+});
+$('installClose').addEventListener('click', () => $('installHelp').classList.add('hide'));
 </script>
 </body>
 </html>
