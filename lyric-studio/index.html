@@ -295,6 +295,7 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
       <p class="cost">About ₹15 for 4 pictures, charged to your paid key.</p>
       <p class="status" id="charStatus" role="status"></p>
       <div class="cgrid" id="charGrid"></div>
+      <label class="drop" for="charOwn" style="padding:12px"><b style="font-size:13px">Or add a character you made yourself</b><span class="sub" style="font-size:12px">Free: make one in the Gemini app from your photo, save it, and add it here</span><input id="charOwn" type="file" accept="image/*"></label>
     </div>
     <div class="box">
       <p><b>3. Test a moving clip</b></p>
@@ -958,6 +959,12 @@ const A = (() => {
     }catch(e){ $('clipStatus').textContent = ANIM.friendly(e, paid()); }
     if(wake) wake.release().catch(() => {});
     st.busy = false; $('makeClip').textContent = 'Make a test clip'; grid();
+  });
+  $('charOwn').addEventListener('change', e => {
+    const f = e.target.files[0]; if(!f) return;
+    st.chars = st.chars.filter(c => c.blob); st.chars.push({ blob:f, url:url(f) }); st.pick = st.chars.length - 1;
+    $('charStatus').textContent = 'Your character is added and selected. You can use it for clips, or as a background in step 3 (My photo).';
+    grid(); saveAll(); e.target.value = '';
   });
   $('clipHistory').addEventListener('click', e => { const b = e.target.closest('[data-clip]'); if(b) show(st.clips[Number(b.dataset.clip)]); });
   $('clipWithSong').addEventListener('click', () => {
