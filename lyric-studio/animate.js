@@ -40,12 +40,28 @@ async function videoModel(key){
 }
 
 const b64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+let heicLib = null;
+function loadHeic(){ return heicLib || (heicLib = new Promise((res, rej) => { if(window.heic2any) return res(window.heic2any);
+  const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js'; sc.onload = () => res(window.heic2any); sc.onerror = () => { heicLib = null; rej(new Error('converter failed to load')); }; document.head.appendChild(sc); })); }
+async function looksHeic(blob){
+  if(/heic|heif/i.test(blob.type || '') || /\.(heic|heif)$/i.test(blob.name || '')) return true;
+  try{ const h = new Uint8Array(await blob.slice(0, 16).arrayBuffer()); const t = String.fromCharCode(...h.slice(4, 12)); return /ftyp(heic|heix|hevc|mif1|msf1|heim|heis)/.test(t); }catch(e){ return false; }
+}
+async function tryDecode(blob){
+  for(const opt of [{ resizeWidth: 1600, resizeQuality:'high', imageOrientation:'from-image' }, { imageOrientation:'from-image' }, undefined]){
+    try{ const b = await createImageBitmap(blob, opt); if(opt && opt.resizeWidth){ /* keep aspect: Chrome scales height too when only width given */ } return b; }catch(e){}
+  }
+  try{ const u = URL.createObjectURL(blob); const img = new Image(); await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = u; }); return img; }catch(e){}
+  return null;
+}
 async function decodeAny(blob){
-  try{ return await createImageBitmap(blob, { imageOrientation:'from-image' }); }catch(e){}
-  try{ return await createImageBitmap(blob); }catch(e){}
-  const u = URL.createObjectURL(blob); const img = new Image();
-  await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('This photo could not be opened on this phone. Try a JPG or PNG, or take a screenshot of it and use that.')); img.src = u; });
-  return img;
+  let img = await tryDecode(blob);
+  if(img) return img;
+  if(await looksHeic(blob)){
+    try{ const h = await loadHeic(); const out = await h({ blob, toType:'image/jpeg', quality:.9 }); const jpg = Array.isArray(out) ? out[0] : out; img = await tryDecode(jpg); if(img) return img; }catch(e){}
+  }
+  const kb = Math.round((blob.size || 0) / 1024), kind = blob.type || (blob.name || '').split('.').pop() || 'unknown type';
+  throw new Error('This photo could not be opened (' + kind + ', ' + kb + ' KB). ' + (kb === 0 ? 'The file looks empty: if it is in Google Photos, download it to the phone first, then choose it again.' : 'Try another photo, or take a screenshot of this one and choose the screenshot.'));
 }
 /* Re-encode to a small, plain image. Returns { blob, mime, w, h }. */
 async function shrink(blob, max, type){
@@ -166,12 +182,13 @@ function friendly(e, paid){
    Each service is a list of public "Spaces" tried in order, so if one is down the next is used. */
 const GC_URL = 'https://cdn.jsdelivr.net/npm/@gradio/client@2.7.2/dist/browser.js';
 let gcMod = null; const gc = async () => gcMod || (gcMod = await import(GC_URL));
+const NEG = 'blurry, distorted body, extra limbs, extra fingers, deformed hands, melting face, text, subtitles, watermark, camera shake, static frame, multiple people';
 const FREE_SPACES = {
   edit:  [ { id:'multimodalart/Qwen-Image-Edit-Fast', ep:'/infer', args: (img, p) => ({ image: img, prompt: p, seed: 0, randomize_seed: true, true_guidance_scale: 1, num_inference_steps: 8, rewrite_prompt: false }) },
            { id:'black-forest-labs/FLUX.1-Kontext-Dev', ep:'/infer', args: (img, p) => ({ input_image: img, prompt: p, seed: 0, randomize_seed: true, guidance_scale: 2.5, steps: 24 }) },
            { id:'Qwen/Qwen-Image-Edit', ep:'/infer', args: (img, p) => ({ image: img, prompt: p, seed: 0, randomize_seed: true, true_guidance_scale: 4, num_inference_steps: 30, rewrite_prompt: false }) } ],
-  i2v:   [ { id:'zerogpu-aoti/wan2-2-fp8da-aoti-faster', ep:'/generate_video', args: (img, p, d) => ({ input_image: img, prompt: p, steps: 6, negative_prompt: 'blurry, distorted body, extra limbs, deformed hands, text, watermark, camera shake', duration_seconds: d, guidance_scale: 1, guidance_scale_2: 1, seed: 0, randomize_seed: true }) },
-           { id:'r3gm/wan2-2-fp8da-aoti-preview', ep:'/generate_video', args: (img, p, d) => ({ input_image: img, prompt: p, steps: 6, negative_prompt: 'blurry, distorted body, extra limbs, text, watermark', duration_seconds: d, guidance_scale: 1, guidance_scale_2: 1, seed: 0, randomize_seed: true }) } ],
+  i2v:   [ { id:'r3gm/wan2-2-fp8da-aoti-preview', max: 10, ep:'/generate_video', args: (img, p, d, last) => ({ input_image: img, last_image: last || null, prompt: p, steps: 6, negative_prompt: NEG, duration_seconds: d, guidance_scale: 1, guidance_scale_2: 1, seed: 0, randomize_seed: true, quality: 6, scheduler: 'UniPCMultistep', flow_shift: 3, frame_multiplier: '16', video_component: true, safe_mode: true, enable_safety_checker: true }) },
+           { id:'zerogpu-aoti/wan2-2-fp8da-aoti-faster', max: 5, ep:'/generate_video', args: (img, p, d) => ({ input_image: img, prompt: p, steps: 6, negative_prompt: NEG, duration_seconds: d, guidance_scale: 1, guidance_scale_2: 1, seed: 0, randomize_seed: true }) } ],
   move:  [ { id:'alexnasa/Wan2.2-Animate-ZEROGPU', ep:'/animate_scene', args: (img, vid, d) => ({ input_video: vid, max_duration_s: d, edited_frame: img, rc_str: 'Pose Retarget', resolution_choice: 'Low Res' }) } ]
 };
 function firstUrl(o){
@@ -217,9 +234,9 @@ const FREE = {
       return runFree('edit', (sp, hf) => sp.args(hf(v.blob), p), token, onStatus); })();
   },
   /* character picture -> moving clip from a description */
-  clip(charBlob, prompt, seconds, token, onStatus){
-    return (async () => { const v = await shrink(charBlob, 832, 'image/png');
-      return runFree('i2v', (sp, hf) => sp.args(hf(v.blob), prompt, Math.max(1.5, Math.min(5, seconds || 3.5))), token, onStatus); })();
+  clip(charBlob, prompt, seconds, token, onStatus, loop){
+    return (async () => { const v = await shrink(charBlob, 832, 'image/png'); const want = Math.max(1.5, Math.min(10, seconds || 3.5));
+      return runFree('i2v', (sp, hf) => sp.args(hf(v.blob), prompt, Math.min(want, sp.max || 5), loop ? hf(v.blob) : null), token, onStatus); })();
   },
   /* character picture + any dance video -> the character does those exact moves */
   move(charBlob, danceVideo, seconds, token, onStatus){

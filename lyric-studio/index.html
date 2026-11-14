@@ -359,9 +359,12 @@ details.box:not([open]){gap:0}
       <p class="sub" style="font-size:14px">Uses the character you picked above. Each clip is a few seconds long; make several and they play one after another through your song.</p>
       <div class="chips" id="fcMode"><button class="chip" data-m="describe" aria-pressed="true">Describe the moves</button><button class="chip" data-m="copy" aria-pressed="false">Copy moves from a dance video</button></div>
       <div id="fcDescribe" class="grp" style="gap:10px">
-        <div class="chips" id="moveIdeas"></div>
+        <p class="sub" style="font-size:13px">Dance styles</p><div class="chips" id="moveIdeas"></div>
+        <p class="sub" style="font-size:13px">Actions</p><div class="chips" id="moveActs"></div>
         <label for="freeClipPrompt">What the character does<textarea id="freeClipPrompt" style="min-height:90px"></textarea></label>
-        <label for="clipSecs">Clip length <span id="clipSecsV"></span><input type="range" id="clipSecs" min="2" max="5" step="0.5" value="3.5"></label>
+        <label for="clipSecs">Clip length <span id="clipSecsV"></span><input type="range" id="clipSecs" min="2" max="10" step="0.5" value="5"></label>
+        <label for="loopClip" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="loopClip" checked style="width:20px;height:20px">End in the starting pose (loops smoothly)</label>
+        <p class="sub" style="font-size:12px">Longer clips use more of the free daily limit: one 10-second clip uses about as much as three short ones.</p>
         <button class="btn" id="freeMakeClip" disabled>Make this clip (free)</button>
       </div>
       <div id="fcCopy" class="grp hide" style="gap:10px">
@@ -423,7 +426,7 @@ details.box:not([open]){gap:0}
 </div>
 
 <script src="look.js?v=13"></script>
-<script src="animate.js?v=13"></script>
+<script src="animate.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
 <script src="export.js?v=13"></script>
 <script>
@@ -1314,22 +1317,47 @@ const A = (() => {
   $('fcMode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if(!b) return; fcMode = b.dataset.m;
     document.querySelectorAll('#fcMode [data-m]').forEach(x => x.setAttribute('aria-pressed', x === b)); $('fcDescribe').classList.toggle('hide', fcMode !== 'describe'); $('fcCopy').classList.toggle('hide', fcMode !== 'copy'); });
   const IDEAS = {
-    'Dance': 'dances energetically like a real person to a folk-trap beat: footwork, arm swings, hip and shoulder moves, head nods',
+    'Contemporary': 'performs fluid contemporary dance: flowing arms, deep floor-level lunges, controlled turns, a high leg extension and emotional upper-body waves',
+    'Salsa': 'dances salsa with quick on-beat footwork, hip motion, a fast spin and expressive arm styling',
+    'Bachata': 'dances bachata: side-to-side steps with a hip pop on the fourth beat, smooth body waves and relaxed arms',
+    'Samba': 'dances energetic samba with bouncy footwork, fast hip movement and raised celebrating arms',
+    'Tango': 'dances dramatic Argentine tango with sharp head snaps, long gliding steps, a ganchos leg flick and a strong final pose',
+    'Cha-cha': 'dances cha-cha with crisp cha-cha-cha triple steps, Cuban hip motion and a sharp spot turn',
+    'Reggaeton': 'dances reggaeton with bouncy perreo rhythm, shoulder pops and swagger',
+    'Merengue': 'dances merengue with quick marching steps, rolling hips and playful turns',
+    'Rumba': 'dances slow sensual rumba with smooth hip action and graceful arm lines',
+    'Paso doble': 'dances paso doble like a proud matador: stamping steps, sharp arm flourishes and dramatic poses',
+    'Bollywood': 'dances high-energy Bollywood: expressive hand gestures, hip shakes, a filmy spin and a big final pose',
+    'Bhangra': 'dances bhangra with shoulder bounces, one leg kicks and both arms raised high, full of joy',
+    'Folk': 'does lively Indian folk dance steps with claps above the head and a turn',
+    'Kuchipudi': 'dances Kuchipudi classical style: precise footwork, graceful mudras with the hands, expressive eyes and a balanced pose',
+    'Bharatanatyam': 'dances Bharatanatyam: half-sitting aramandi stance, rhythmic foot stamps, sharp mudras and expressive eyes',
     'Hip-hop': 'does hip-hop dance moves: bounce, arm waves, a quick spin, then points at the camera',
-    'Folk steps': 'does lively Indian folk dance steps with claps above the head and a turn',
+    'Popping': 'does popping: sharp muscle hits on the beat, robotic arm waves and a tutting sequence',
+    'Locking': 'does locking: fast wrist rolls, points, freezes and a playful knee drop',
+    'Breaking': 'does breakdance: toprock steps, drops into footwork on the floor, then a freeze pose',
+    'Krump': 'does intense krump: chest pops, arm swings and stomps with powerful energy',
+    'Freestyle': 'freestyles to a folk-trap beat, mixing footwork, body waves, a spin and a confident pose'
+  };
+  const ACTS = {
     'Sing': 'sings passionately into a handheld microphone, moving to the rhythm, eyes closed then smiling at the camera',
     'Walk in': 'walks confidently towards the camera with swagger, then strikes a pose',
     'Jump': 'jumps high with joy and lands in a dance pose',
-    'Wave': 'waves to a cheering crowd and smiles, swaying to the music'
+    'Wave': 'waves to a cheering crowd and smiles, swaying to the music',
+    'Spin': 'does three fast spins and finishes in a sharp pose',
+    'Point & pose': 'points at the camera on the beat, then hits a series of strong poses'
   };
+
   $('moveIdeas').innerHTML = Object.keys(IDEAS).map(k => `<button class="chip" data-idea="${k}">${k}</button>`).join('');
+  $('moveActs').innerHTML = Object.keys(ACTS).map(k => `<button class="chip" data-act="${k}">${k}</button>`).join('');
+  $('moveActs').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if(!b) return; $('freeClipPrompt').value = clipPromptFor(ACTS[b.dataset.act]); });
   const clipPromptFor = what => 'The character ' + what + '. Full body always in frame, camera completely still, keep the plain bright green background, smooth natural motion, same face and outfit throughout.';
-  if(!$('freeClipPrompt').value) $('freeClipPrompt').value = clipPromptFor(IDEAS['Dance']);
+  if(!$('freeClipPrompt').value) $('freeClipPrompt').value = clipPromptFor(IDEAS['Freestyle']);
   $('moveIdeas').addEventListener('click', e => { const b = e.target.closest('[data-idea]'); if(!b) return; $('freeClipPrompt').value = clipPromptFor(IDEAS[b.dataset.idea]); });
   const secUI = () => { $('clipSecsV').textContent = $('clipSecs').value + ' s'; $('moveSecsV').textContent = $('moveSecs').value + ' s'; };
   secUI(); $('clipSecs').addEventListener('input', secUI); $('moveSecs').addEventListener('input', secUI);
   $('freeMakeClip').addEventListener('click', () => busyRun($('freeMakeClip'), $('freeClipStatus'), 'Making your clip…', async say => {
-    const c = st.chars[st.pick]; const v = await ANIM.FREE.clip(c.blob, $('freeClipPrompt').value.trim(), +$('clipSecs').value, hfKey(), say);
+    const c = st.chars[st.pick]; const v = await ANIM.FREE.clip(c.blob, $('freeClipPrompt').value.trim(), +$('clipSecs').value, hfKey(), say, $('loopClip').checked);
     await addClip(v, $('freeClipPrompt').value.trim().slice(14, 60)); say('Clip ready and added to your clips (step 4). Make more for a longer music video.');
   }));
   $('danceRef').addEventListener('change', e => { const f = e.target.files[0]; if(!f) return; st.dance = f; $('danceRefTitle').textContent = 'Dance video chosen. Tap to change it'; grid(); });
