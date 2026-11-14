@@ -85,6 +85,8 @@ canvas,video{max-width:100%;max-height:62vh;display:block}
 input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:transparent}
 .pickers{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pickers input[type=color]{width:44px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--line);background:var(--bg)}
+details.box summary{cursor:pointer;list-style:revert}
+details.box:not([open]){gap:0}
 .sub-panel{border-left:3px solid var(--accent2);padding-left:10px}
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cgrid button{padding:0;border:3px solid transparent;border-radius:12px;overflow:hidden;background:var(--raise);aspect-ratio:9/16}
@@ -225,6 +227,22 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
       <label for="vArtist">Artist<input type="text" id="vArtist" maxlength="60"></label>
     </div>
     <div class="box">
+      <p class="sub" style="font-weight:600;font-size:13px">Your character</p>
+      <div id="charNone" class="grp"><p class="sub">No character yet. Make one of yourself for free and it will dance in this video.</p><button class="btn alt sm" id="goAnimate">Make my character (step 4)</button></div>
+      <div id="charCtl" class="grp hide">
+        <div style="display:flex;gap:12px;align-items:center">
+          <img id="charThumb" alt="Your character" style="width:72px;height:96px;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(#2a2640 0 25%,#1b1828 0 50%) 0 0/16px 16px">
+          <label for="charOnCb" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="charOnCb" style="width:22px;height:22px">Show my character</label>
+        </div>
+        <p class="sub" style="font-size:13px">Movement</p><div class="chips" data-group="charMove"></div>
+        <p class="sub" style="font-size:13px">Where</p><div class="chips" data-group="charPos"></div>
+        <p class="sub" style="font-size:13px">Background of the picture</p><div class="chips" data-group="charCut"></div>
+        <label for="charSize">Character size <span id="charSizeV"></span><input type="range" id="charSize" min="0.25" max="1" step="0.01"></label>
+        <label for="charGlowCb" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="charGlowCb" style="width:20px;height:20px">Glow around the character</label>
+        <button class="btn alt sm" id="changeChar">Change character (step 4)</button>
+      </div>
+    </div>
+    <div class="box">
       <div class="grp"><p class="sub">Background</p><div class="chips" data-group="bg"></div></div>
       <div class="grp hide sub-panel" id="genPanel">
         <button class="btn sm" id="shuffle">New random background</button>
@@ -279,31 +297,45 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
   <!-- STEP 4 -->
   <section id="s4">
     <h1>Animate you</h1>
-    <p class="sub">Turn your photo into a character, then make a moving test clip of it. This uses your paid Gemini key from step 1 (Private mode).</p>
+    <p class="sub">Free: make a cartoon of yourself in the Gemini app, add it here, and it dances to your song in the lyric video.</p>
     <div class="box">
-      <p><b>1. Your photo</b></p>
-      <label class="drop" for="charPhoto" style="padding:14px"><b id="charPhotoTitle" style="font-size:14px">Choose a clear photo of your face</b><span class="sub">Front-facing, good light, just you</span><input id="charPhoto" type="file" accept="image/*"></label>
-      <img id="charPhotoThumb" class="thumb hide" alt="Your photo">
+      <p><b>1. Make your character in the Gemini app (free)</b></p>
+      <div class="grp"><p class="sub">Style</p><div class="chips" id="cStyles"></div></div>
+      <label for="cExtra">Extra idea (optional)<input type="text" id="cExtra" maxlength="160" placeholder="e.g. black hoodie, gold chain, sunglasses"></label>
+      <label for="freePrompt">Prompt to paste into Gemini<textarea id="freePrompt" readonly style="min-height:120px;font-size:14px"></textarea></label>
+      <div class="rowb">
+        <button class="btn" id="copyPrompt">Copy prompt</button>
+        <a class="btn alt" id="openGemini" href="https://gemini.google.com/app" target="_blank" rel="noopener">Open Gemini</a>
+      </div>
+      <ol class="sub" style="margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px">
+        <li>Tap <b>Copy prompt</b>, then <b>Open Gemini</b>.</li>
+        <li>In Gemini, attach a clear photo of your face, paste the prompt and send.</li>
+        <li>Save the picture it makes (open it, then download or long-press and save).</li>
+        <li>Come back here and add it in step 2 below.</li>
+      </ol>
     </div>
     <div class="box">
-      <p><b>2. Make your character</b></p>
-      <div class="grp"><p class="sub">Style</p><div class="chips" id="cStyles"></div></div>
-      <div class="grp"><p class="sub">Shape</p><div class="chips" id="cRatios">
-        <button class="chip" data-r="9:16" aria-pressed="true">Vertical 9:16</button><button class="chip" data-r="16:9" aria-pressed="false">Wide 16:9</button></div></div>
-      <label for="cExtra">Extra idea (optional)<input type="text" id="cExtra" maxlength="160" placeholder="e.g. black hoodie, gold chain, dancing pose"></label>
-      <button class="btn" id="makeChar" disabled>Make 4 versions</button>
-      <p class="cost">About ₹15 for 4 pictures, charged to your paid key.</p>
+      <p><b>2. Add your character</b></p>
+      <label class="drop" for="charOwn" style="padding:16px"><b style="font-size:15px">Add the picture from Gemini</b><span class="sub" style="font-size:13px">A plain background is removed automatically</span><input id="charOwn" type="file" accept="image/*"></label>
       <p class="status" id="charStatus" role="status"></p>
       <div class="cgrid" id="charGrid"></div>
-      <label class="drop" for="charOwn" style="padding:12px"><b style="font-size:13px">Or add a character you made yourself</b><span class="sub" style="font-size:12px">Free: make one in the Gemini app from your photo, save it, and add it here</span><input id="charOwn" type="file" accept="image/*"></label>
+      <button class="btn" id="useChar" disabled>Put this character in my lyric video</button>
     </div>
-    <div class="box">
-      <p><b>3. Test a moving clip</b></p>
-      <p class="sub" id="clipNeeds">Pick one of your character versions above first.</p>
+    <details class="box" id="paidBox">
+      <summary><b>Paid extras</b> <span class="sub">(need a ₹3,000 Google top-up)</span></summary>
+      <p class="sub" style="font-size:13px">Only if you add credit to your Gemini paid key: make characters inside this app, and moving AI clips of your character.</p>
+      <label class="drop" for="charPhoto" style="padding:14px"><b id="charPhotoTitle" style="font-size:14px">Choose a clear photo of your face</b><input id="charPhoto" type="file" accept="image/*"></label>
+      <img id="charPhotoThumb" class="thumb hide" alt="Your photo">
+      <div class="grp"><p class="sub">Shape</p><div class="chips" id="cRatios">
+        <button class="chip" data-r="9:16" aria-pressed="true">Vertical 9:16</button><button class="chip" data-r="16:9" aria-pressed="false">Wide 16:9</button></div></div>
+      <button class="btn alt" id="makeChar" disabled>Make 4 versions in the app</button>
+      <p class="cost">About ₹15 for 4 pictures, on your paid key.</p>
+      <p><b>Moving test clip</b></p>
+      <p class="sub" id="clipNeeds">Pick one of your characters above first.</p>
       <label for="clipLine">Lyric line this clip is for (optional)<select id="clipLine"></select></label>
       <label for="clipPrompt">What happens in the clip<textarea id="clipPrompt" style="min-height:90px"></textarea></label>
-      <button class="btn" id="makeClip" disabled>Make a test clip</button>
-      <p class="cost">About ₹70 for one clip of up to 8 seconds at 720p. It takes 1 to 3 minutes. Keep this screen open.</p>
+      <button class="btn alt" id="makeClip" disabled>Make a test clip</button>
+      <p class="cost">About ₹70 for one clip of up to 8 seconds. It takes 1 to 3 minutes.</p>
       <p class="status" id="clipStatus" role="status"></p>
       <div id="clipOut" class="hide" style="display:flex;flex-direction:column;gap:10px">
         <div class="stage"><video id="clipVideo" controls playsinline loop></video></div>
@@ -313,7 +345,7 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
         </div>
       </div>
       <div id="clipHistory" class="grp"></div>
-    </div>
+    </details>
   </section>
 </div>
 
@@ -367,7 +399,7 @@ function saveState(now){
   if(restoring) return;
   clearTimeout(stateT);
   const write = () => store.set('state', {
-    step: S.step, lines: S.lines, look: Object.assign({}, S.look, { photo: undefined, photoBlur: undefined, aiImg: undefined, aiBlur: undefined, videoEl: undefined, _acc: undefined, _t: undefined, _lv: undefined }), dur: S.dur,
+    step: S.step, lines: S.lines, look: Object.assign({}, S.look, { photo: undefined, photoBlur: undefined, aiImg: undefined, aiBlur: undefined, videoEl: undefined, charImg: undefined, _acc: undefined, _t: undefined, _lv: undefined }), dur: S.dur,
     title: $('vTitle').value, artist: $('vArtist').value, lang: $('lang').value, model: $('model').value,
     paste: $('paste').value, tx: S.tx || null, engine: $('engine').value, script: $('script').value
   });
@@ -688,7 +720,7 @@ function chipsFor(group){
     genkind: L.GEN_KINDS,
     ratio: Object.fromEntries(Object.entries(L.RATIOS).map(([k,v]) => [k, v.name + (v.note ? ` <span class="sub" style="font-size:12px">${v.note}</span>` : '')])),
     font: Object.fromEntries(Object.entries(L.FONTS).map(([k,v]) => [k, `<span style="font-family:${v.fam.replace(/"/g,"'")};font-weight:${v.w}">${v.name}</span>`])),
-    anim: L.ANIMS, tstyle: L.TSTYLES, align: L.ALIGNS, grade: L.GRADES, fx: L.FX,
+    anim: L.ANIMS, tstyle: L.TSTYLES, align: L.ALIGNS, grade: L.GRADES, fx: L.FX, charMove: L.CHAR_MOVES, charPos: L.CHAR_POS, charCut: L.CHAR_CUT,
     color: Object.fromEntries(Object.entries(L.COLORS).map(([k,v]) => [k, (v[1] === 'rainbow' ? swatch('linear-gradient(90deg,#ff6b6b,#ffd43b,#69db7c,#4dabf7,#da77f2)') : v[1] === 'custom' ? swatch(cur.ink || '#ffffff') : v[1] ? swatch(v[1]) : '') + v[0]])) };
   const el = document.querySelector(`[data-group="${group}"]`);
   el.innerHTML = Object.entries(map[group]).map(([k, label]) => {
@@ -713,7 +745,7 @@ function syncControls(){
   $('favs').innerHTML = (S.favs || []).map((f, i) => `<button class="chip" data-fav="${i}">${swatch(`linear-gradient(135deg,${f.cols[0]},${f.cols[1]},${f.cols[2]})`)}#${f.seed}</button>`).join('');
   if(L.bg === 'video') vidClipList();
 }
-function renderChips(){ ['bg','genkind','ratio','font','anim','tstyle','color','align','grade','fx'].forEach(chipsFor); syncControls(); }
+function renderChips(){ ['bg','genkind','ratio','font','anim','tstyle','color','align','grade','fx','charMove','charPos','charCut'].forEach(chipsFor); syncControls(); charUI(); }
 function changed(){ renderChips(); saveState(); redraw(); }
 document.querySelectorAll('[data-group]').forEach(el => el.addEventListener('click', e => {
   const b = e.target.closest('[data-k]'); if(!b) return; const g = el.dataset.group, k = b.dataset.k;
@@ -724,6 +756,7 @@ document.querySelectorAll('[data-group]').forEach(el => el.addEventListener('cli
   if(g === 'bg' && k === 'photo' && !S.photo) setTimeout(() => $('bgFile').click(), 50);
   if(g === 'bg' && k === 'video' && !S.look.videoEl) vidClipList();
   if(g === 'font') LOOK.loadFonts(k).then(redraw);
+  if(g === 'charCut' && S.charBlob){ setCharLayer(S.charBlob).then(() => { charUI(); redraw(); }); }
   changed();
 }));
 $('shuffle').addEventListener('click', () => { S.look.gen = LOOK.randomGen(); S.look.bg = 'gen'; changed(); });
@@ -748,6 +781,7 @@ $('surprise').addEventListener('click', () => {
   S.look.color = light ? (Math.random() < .5 ? 'theme' : 'black') : pick({ theme:1, white:1, gold:1, pink:1, cyan:1, lime:1, orange:1, purple:1, rainbow:1 });
   const keep = { next: S.look.fx.next, info: S.look.fx.info, blur: S.look.fx.blur }; S.look.fx = Object.assign({ pulse: Math.random() < .7 }, keep);
   const extras = Object.keys(LOOK.FX).filter(k => !['next','info','blur','pulse'].includes(k)); for(let n = Math.floor(Math.random() * 4); n > 0; n--) S.look.fx[extras[Math.floor(Math.random() * extras.length)]] = true;
+  if(S.look.charImg){ S.look.charMove = pick(LOOK.CHAR_MOVES); if(S.look.ty > .32 && S.look.ty < .68) S.look.ty = .22; }
   if(LOOK.FONTS[S.look.font]) LOOK.loadFonts(S.look.font).then(redraw);
   changed();
 });
@@ -882,6 +916,59 @@ $('share').addEventListener('click', async () => {
 });
 
 
+/* ---------- character layer (free route) ---------- */
+/* Removes a plain background by flood-filling from the picture's edges with the corner color. */
+async function cutout(blob, mode){
+  const bmp = await (async () => { try{ return await createImageBitmap(blob); }catch(e){ return await imgFrom(blob); } })();
+  const iw = bmp.width || bmp.naturalWidth, ih = bmp.height || bmp.naturalHeight, sc = Math.min(1, 1100 / Math.max(iw, ih));
+  const w = Math.max(1, Math.round(iw * sc)), h = Math.max(1, Math.round(ih * sc));
+  const cvs = document.createElement('canvas'); cvs.width = w; cvs.height = h; const g = cvs.getContext('2d', { willReadFrequently: true });
+  g.drawImage(bmp, 0, 0, w, h);
+  if(mode === 'off') return { canvas: cvs, removed: 0 };
+  const im = g.getImageData(0, 0, w, h), d = im.data;
+  let r = 0, gg = 0, b = 0, n = 0; const patch = Math.max(2, Math.round(Math.min(w, h) * .02));
+  [[0,0],[w-patch,0],[0,h-patch],[w-patch,h-patch]].forEach(([x0,y0]) => { for(let y = y0; y < y0 + patch; y++) for(let x = x0; x < x0 + patch; x++){ const k = (y * w + x) * 4; r += d[k]; gg += d[k+1]; b += d[k+2]; n++; } });
+  r /= n; gg /= n; b /= n;
+  const green = gg > r + 40 && gg > b + 40, tol = green ? 120 : 60, tol2 = tol * tol;
+  const dist = k => { const dr = d[k] - r, dg = d[k+1] - gg, db = d[k+2] - b; return dr * dr + dg * dg + db * db; };
+  const isBg = k => green ? (d[k+1] > d[k] + 25 && d[k+1] > d[k+2] + 25 && dist(k) < tol2 * 1.6) : dist(k) < tol2;
+  const seen = new Uint8Array(w * h), q = new Int32Array(w * h); let qh = 0, qt = 0;
+  const push = p => { if(!seen[p] && isBg(p * 4)){ seen[p] = 1; q[qt++] = p; } };
+  for(let x = 0; x < w; x++){ push(x); push((h - 1) * w + x); } for(let y = 0; y < h; y++){ push(y * w); push(y * w + w - 1); }
+  while(qh < qt){ const p = q[qh++], x = p % w, y = (p / w) | 0; if(x > 0) push(p - 1); if(x < w - 1) push(p + 1); if(y > 0) push(p - w); if(y < h - 1) push(p + w); }
+  let removed = 0;
+  for(let p = 0; p < w * h; p++){ if(seen[p]){ d[p * 4 + 3] = 0; removed++; } }
+  for(let y = 1; y < h - 1; y++) for(let x = 1; x < w - 1; x++){ const p = y * w + x; if(seen[p]) continue;
+    const edge = seen[p - 1] + seen[p + 1] + seen[p - w] + seen[p + w]; if(!edge) continue;
+    const k = p * 4; d[k + 3] = Math.round(255 * (1 - edge * .18));
+    if(green){ const m = Math.max(d[k], d[k + 2]); if(d[k + 1] > m) d[k + 1] = m; } }
+  if(green) for(let p = 0; p < w * h; p++){ if(seen[p]) continue; const k = p * 4, m = Math.max(d[k], d[k + 2]); if(d[k + 1] > m + 30) d[k + 1] = m + 30; }
+  if(removed < w * h * .03) return { canvas: cvs, removed: 0 };
+  g.putImageData(im, 0, 0);
+  let minX = w, minY = h, maxX = 0, maxY = 0;
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++) if(d[(y * w + x) * 4 + 3] > 20){ if(x < minX) minX = x; if(x > maxX) maxX = x; if(y < minY) minY = y; if(y > maxY) maxY = y; }
+  if(maxX > minX && maxY > minY){ const t = document.createElement('canvas'); t.width = maxX - minX + 1; t.height = maxY - minY + 1; t.getContext('2d').drawImage(cvs, -minX, -minY); return { canvas: t, removed: removed / (w * h) }; }
+  return { canvas: cvs, removed: removed / (w * h) };
+}
+async function setCharLayer(blob){
+  S.charBlob = blob;
+  try{
+    const res = await cutout(blob, S.look.charCut || 'auto');
+    S.look.charImg = res.canvas; S.charRemoved = res.removed;
+    $('charThumb').src = res.canvas.toDataURL('image/png');
+  }catch(e){ S.look.charImg = null; }
+}
+function charUI(){
+  const has = !!S.look.charImg;
+  $('charNone').classList.toggle('hide', has); $('charCtl').classList.toggle('hide', !has);
+  $('charOnCb').checked = !!S.look.charOn; $('charGlowCb').checked = S.look.charGlow !== false;
+  $('charSize').value = S.look.charSize; $('charSizeV').textContent = Math.round(S.look.charSize * 100) + '% of the height';
+}
+$('goAnimate').addEventListener('click', () => go(4)); $('changeChar').addEventListener('click', () => go(4));
+$('charOnCb').addEventListener('change', () => { S.look.charOn = $('charOnCb').checked; saveState(); redraw(); });
+$('charGlowCb').addEventListener('change', () => { S.look.charGlow = $('charGlowCb').checked; saveState(); redraw(); });
+$('charSize').addEventListener('input', () => { S.look.charSize = +$('charSize').value; charUI(); saveState(); redraw(); });
+
 /* ---------- step 4: animate you ---------- */
 const A = (() => {
   const st = { photo:null, style:'anime', ratio:'9:16', chars:[], pick:-1, busy:false, clips:[] };
@@ -892,6 +979,13 @@ const A = (() => {
     $('cStyles').innerHTML = Object.entries(ANIM.STYLES).map(([k, v]) => `<button class="chip" data-s="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join('');
     document.querySelectorAll('#cRatios [data-r]').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === st.ratio));
     $('charGrid').classList.toggle('wide', st.ratio === '16:9');
+    $('freePrompt').value = freePrompt();
+  }
+  function freePrompt(){
+    const stl = ANIM.STYLES[st.style] || ANIM.STYLES.anime, extra = $('cExtra').value.trim();
+    return `Turn the person in my photo into ${stl.p}. Keep my face shape, skin tone, hairstyle, facial hair and likeness so it clearly looks like me. ` +
+      `Show my full body from head to feet, standing in a confident dance pose, facing the camera, in a tall portrait image. ` +
+      `Put me on a plain, solid, bright green background (#00FF00) with no shadows, no floor and nothing else. No text, no logos.` + (extra ? ` Also: ${extra}.` : '');
   }
   function grid(){
     $('charGrid').innerHTML = st.chars.map((c, i) => c.blob
@@ -900,6 +994,7 @@ const A = (() => {
     const ok = st.pick >= 0 && st.chars[st.pick] && st.chars[st.pick].blob;
     $('makeClip').disabled = !ok || st.busy; $('clipNeeds').classList.toggle('hide', ok);
     $('makeChar').disabled = !st.photo || st.busy;
+    $('useChar').disabled = !ok;
   }
   function lineOptions(){
     const cur = $('clipLine').value;
@@ -929,7 +1024,7 @@ const A = (() => {
   $('cRatios').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if(!b) return; st.ratio = b.dataset.r; chips(); saveAll(); });
   $('charGrid').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if(!b) return; st.pick = Number(b.dataset.i); grid(); saveAll(); });
   $('clipLine').addEventListener('change', () => { $('clipPrompt').value = defaultPrompt(); });
-  $('cExtra').addEventListener('change', saveAll); $('clipPrompt').addEventListener('change', saveAll);
+  $('cExtra').addEventListener('change', saveAll); $('cExtra').addEventListener('input', () => { $('freePrompt').value = freePrompt(); }); $('clipPrompt').addEventListener('change', saveAll);
   $('makeChar').addEventListener('click', async () => {
     if(!st.photo || st.busy) return;
     if(!key()){ $('charStatus').textContent = 'Add your Gemini key in step 1 first (paid key under Private mode).'; return; }
@@ -960,10 +1055,25 @@ const A = (() => {
     if(wake) wake.release().catch(() => {});
     st.busy = false; $('makeClip').textContent = 'Make a test clip'; grid();
   });
+  $('copyPrompt').addEventListener('click', async () => {
+    const t = $('freePrompt').value; let ok = false;
+    try{ await navigator.clipboard.writeText(t); ok = true; }catch(e){}
+    if(!ok){ $('freePrompt').focus(); $('freePrompt').select(); try{ ok = document.execCommand('copy'); }catch(e){} }
+    $('copyPrompt').textContent = ok ? 'Copied ✓' : 'Select the text and copy it';
+    setTimeout(() => { $('copyPrompt').textContent = 'Copy prompt'; }, 2500);
+  });
+  $('useChar').addEventListener('click', async () => {
+    const c = st.chars[st.pick]; if(!c || !c.blob) return;
+    $('useChar').disabled = true; $('charStatus').textContent = 'Getting your character ready…';
+    await setCharLayer(c.blob); store.set('charlayer', c.blob);
+    S.look.charOn = true; if(S.look.ty > .32 && S.look.ty < .68 && S.look.charSize > .45) S.look.ty = .22;
+    saveState(); $('useChar').disabled = false; $('charStatus').textContent = '';
+    if(S.lines.length) go(3); else $('charStatus').textContent = 'Character ready. Load a song and lyrics in steps 1 and 2 to see it dance in the video.';
+  });
   $('charOwn').addEventListener('change', e => {
     const f = e.target.files[0]; if(!f) return;
     st.chars = st.chars.filter(c => c.blob); st.chars.push({ blob:f, url:url(f) }); st.pick = st.chars.length - 1;
-    $('charStatus').textContent = 'Your character is added and selected. You can use it for clips, or as a background in step 3 (My photo).';
+    $('charStatus').textContent = 'Added and selected. Tap "Put this character in my lyric video".';
     grid(); saveAll(); e.target.value = '';
   });
   $('clipHistory').addEventListener('click', e => { const b = e.target.closest('[data-clip]'); if(b) show(st.clips[Number(b.dataset.clip)]); });
@@ -987,7 +1097,7 @@ const A = (() => {
 
 /* ---------- start ---------- */
 async function restore(){
-  const [song, st, bgimg, aibg, bgvid, favs] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg'), store.get('aibg'), store.get('bgvid'), store.get('favs')]);
+  const [song, st, bgimg, aibg, bgvid, favs, charlayer] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg'), store.get('aibg'), store.get('bgvid'), store.get('favs'), store.get('charlayer')]);
   if(song && song.blob) setSong(song.blob, song.name || 'Your song');
   if(st){
     S.lines = Array.isArray(st.lines) ? st.lines : []; S.dur = st.dur || 0; S.tx = st.tx || null;
@@ -1003,7 +1113,7 @@ async function restore(){
       $('resumeBox').classList.remove('hide');
     }
   }
-  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs;
+  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs; if(charlayer) await setCharLayer(charlayer);
   unlock(); if(S.lines.length) renderLines(); syncEngine();
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;

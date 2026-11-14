@@ -269,7 +269,32 @@ const ALIGNS = { center:'Center', left:'Left', right:'Right' };
 const GRADES = { none:'No filter', bw:'Black & white', noir:'Noir', sepia:'Sepia', warm:'Warm', cool:'Cool', vivid:'Vivid', faded:'Faded', dream:'Dreamy pink', matrix:'Green tint', teal:'Teal & orange', night:'Night blue' };
 const FX = { pulse:'Beat pulse', shake:'Camera shake', zoompulse:'Zoom on beat', sparkle:'Sparkles', confetti:'Confetti', snow:'Snow', rain:'Rain', hearts:'Hearts', bokeh:'Bokeh lights', embers:'Fire embers', stars:'Twinkling stars', shooting:'Shooting stars', fog:'Fog', lightleak:'Light leaks', flare:'Lens flare', spotlight:'Spotlight', strobe:'Strobe on beat', lightning:'Lightning', eqfx:'Equalizer bars', waveform:'Sound wave', circle:'Circle visualizer', rgb:'RGB split', glitch:'Glitch', vhs:'VHS tape', scanlines:'Scanlines', grain:'Film grain', vignette:'Strong vignette', bars:'Cinema bars', mirror:'Mirror', next:'Show next line', info:'Song title', blur:'Blur photo' };
 
-function defaults(){ return { bg:'sea', ratio:'9:16', cw:1080, ch:1350, font:'bold', anim:'rise', tstyle:'glow', color:'theme', ink:'#ffffff', acc:'', align:'center', grade:'none',
+const CHAR_MOVES = { dance:'Dance', bounce:'Bounce to beat', sway:'Sway', float:'Float', pulse:'Pulse', walk:'Side to side', jump:'Jump on beat', spin:'Turn around', still:'Still' };
+const CHAR_POS = { center:'Center', left:'Left', right:'Right' };
+const CHAR_CUT = { auto:'Remove plain background', off:'Keep its background' };
+function drawChar(c, W, H, t, lv, u, L){
+  const img = L.charImg; if(!img || !L.charOn) return;
+  const iw = img.width, ih = img.height; if(!iw || !ih) return;
+  let s = H * (L.charSize || .6) / ih; if(iw * s > W * .95) s = W * .95 / iw;
+  const dw = iw * s, dh = ih * s, x0 = L.charPos === 'left' ? Math.max(dw / 2, W * .28) : L.charPos === 'right' ? Math.min(W - dw / 2, W * .72) : W / 2;
+  let rot = 0, sx = 1, sy = 1, dx = 0, dy = 0; const m = L.charMove || 'dance', beat = Math.abs(Math.sin(t * 3.2));
+  if(m === 'dance'){ rot = Math.sin(t * 3.2) * .07; dy = -beat * u * .035 - lv * u * .03; sx = sy = 1 + lv * .04; }
+  else if(m === 'bounce'){ dy = -lv * u * .08 - Math.abs(Math.sin(t * 2.5)) * u * .01; sy = 1 + lv * .04; sx = 1 - lv * .02; }
+  else if(m === 'sway'){ rot = Math.sin(t * 1.4) * .06; }
+  else if(m === 'float'){ dy = Math.sin(t * .9) * u * .025 - u * .02; rot = Math.sin(t * .7) * .02; }
+  else if(m === 'pulse'){ sx = sy = 1 + lv * .1; }
+  else if(m === 'walk'){ dx = Math.sin(t * .5) * (W - dw) * .35; rot = Math.sin(t * 4) * .03; dy = -Math.abs(Math.sin(t * 4)) * u * .015; }
+  else if(m === 'jump'){ const j = Math.max(0, lv - .45) * 2; dy = -j * u * .14; sy = 1 - Math.max(0, .5 - lv) * .06; }
+  else if(m === 'spin'){ sx = Math.cos(t * 1.2); if(Math.abs(sx) < .08) sx = sx < 0 ? -.08 : .08; }
+  c.save(); c.translate(x0 + dx, H + dy); c.rotate(rot);
+  c.globalAlpha = .35; c.fillStyle = '#000'; c.beginPath(); c.ellipse(0, -u * .005 - dy, dw * .32, u * .018, 0, 0, TAU); c.fill(); c.globalAlpha = 1;
+  c.scale(sx, sy);
+  if(L.charGlow !== false){ c.shadowColor = L._acc || '#ffffff'; c.shadowBlur = u * (.03 + lv * .05); }
+  c.drawImage(img, -dw / 2, -dh, dw, dh);
+  c.restore();
+}
+
+function defaults(){ return { charOn:false, charMove:'dance', charPos:'center', charSize:.6, charCut:'auto', charGlow:true, bg:'sea', ratio:'9:16', cw:1080, ch:1350, font:'bold', anim:'rise', tstyle:'glow', color:'theme', ink:'#ffffff', acc:'', align:'center', grade:'none',
   tsize:1, ty:.5, speed:1, fxAmt:1, gen: randomGen(7), fx:{ pulse:true, next:true, info:true, blur:true } }; }
 
 let grainCv = null;
@@ -446,17 +471,19 @@ function frame(c, W, H, t, lv, spec, L, o){
   const vg = c.createRadialGradient(W/2, H/2, u * .3, W/2, H/2, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, light ? 'rgba(80,60,30,.18)' : 'rgba(0,0,0,.5)');
   c.fillStyle = vg; c.fillRect(0, 0, W, H);
   preFx(c, W, H, tb, lv, u, spec, L, light);
+  drawChar(c, W, H, t, lv, u, L);
   partFx(c, W, H, tb, lv, u, L, light);
   grade(c, W, H, L.grade);
   const bars = L.fx.bars ? H * .1 : 0, cy = H * clamp(L.ty == null ? .5 : L.ty, .08, .92), maxW = W * .84, ts = L.tsize || 1;
   const font = FONTS[L.font] || FONTS.bold, i = o.lineAt(t), first = o.lines.length ? o.lines[0].t : 1e9;
   const plainL = Object.assign({}, L, { tstyle:'glow', fx:{} });
+  const titleY = L.charOn && L.charImg ? H * Math.min(.3, clamp(L.ty == null ? .5 : L.ty, .12, .3)) : H * .46;
   if(i < 0){
     const a = Math.min(1, t / .6) * clamp((first - t) / .5, 0, 1);
     if(o.title){ let size = u * .09 * font.k * ts; c.font = `${font.w} ${size}px ${font.fam}`; const tt = font.upper ? o.title.toUpperCase() : o.title;
       while(c.measureText(tt).width > W * .86 && size > 18){ size -= 2; c.font = `${font.w} ${size}px ${font.fam}`; }
-      c.textAlign = 'center'; c.textBaseline = 'middle'; paintWord(c, L, tt, W / 2, H * .46, size, ink, a, ink, 0); c.textAlign = 'left'; }
-    if(o.artist){ c.font = `600 ${u * .042}px ${FONTS.bold.fam}`; c.textAlign = 'center'; c.textBaseline = 'middle'; paintWord(c, plainL, o.artist, W / 2, H * .46 + u * .11, u * .042, soft, a * .85, ink); c.textAlign = 'left'; }
+      c.textAlign = 'center'; c.textBaseline = 'middle'; paintWord(c, L, tt, W / 2, titleY, size, ink, a, ink, 0); c.textAlign = 'left'; }
+    if(o.artist){ c.font = `600 ${u * .042}px ${FONTS.bold.fam}`; c.textAlign = 'center'; c.textBaseline = 'middle'; paintWord(c, plainL, o.artist, W / 2, titleY + u * .11, u * .042, soft, a * .85, ink); c.textAlign = 'left'; }
   } else {
     const cur = o.lines[i], nxt = o.lines[i + 1], end = Math.min(nxt ? nxt.t : cur.t + 6, cur.t + 9), p = t - cur.t, dur = end - cur.t;
     const h = drawLine(c, L, cur.text, W / 2, cy, u * .08 * ts * (1 + plv * .05), maxW, p, dur, ink, acc, 1);
@@ -482,5 +509,5 @@ function loadFonts(key){
   return Promise.all(jobs);
 }
 
-window.LOOK = { BG, RATIOS, FONTS, ANIMS, TSTYLES, COLORS, ALIGNS, GRADES, FX, GEN_KINDS, defaults, frame, makeBlur, loadFonts, randomGen, R };
+window.LOOK = { CHAR_MOVES, CHAR_POS, CHAR_CUT, BG, RATIOS, FONTS, ANIMS, TSTYLES, COLORS, ALIGNS, GRADES, FX, GEN_KINDS, defaults, frame, makeBlur, loadFonts, randomGen, R };
 })();
