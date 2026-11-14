@@ -222,11 +222,7 @@ details.box:not([open]){gap:0}
         <button class="btn alt" id="share">Share</button>
       </div>
     </div>
-    <div class="box">
-      <label for="vTitle">Song title<input type="text" id="vTitle" maxlength="60"></label>
-      <label for="vArtist">Artist<input type="text" id="vArtist" maxlength="60"></label>
-    </div>
-    <div class="box">
+    <div class="box" id="charBox">
       <p class="sub" style="font-weight:600;font-size:13px">Your character</p>
       <div id="charNone" class="grp"><p class="sub">No character yet. Make one of yourself for free and it will dance in this video.</p><button class="btn alt sm" id="goAnimate">Make my character (step 4)</button></div>
       <div id="charCtl" class="grp hide">
@@ -241,6 +237,10 @@ details.box:not([open]){gap:0}
         <label for="charGlowCb" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="charGlowCb" style="width:20px;height:20px">Glow around the character</label>
         <button class="btn alt sm" id="changeChar">Change character (step 4)</button>
       </div>
+    <div class="box">
+      <label for="vTitle">Song title<input type="text" id="vTitle" maxlength="60"></label>
+      <label for="vArtist">Artist<input type="text" id="vArtist" maxlength="60"></label>
+    </div>
     </div>
     <div class="box">
       <div class="grp"><p class="sub">Background</p><div class="chips" data-group="bg"></div></div>
@@ -349,8 +349,8 @@ details.box:not([open]){gap:0}
   </section>
 </div>
 
-<script src="look.js"></script>
-<script src="animate.js"></script>
+<script src="look.js?v=11"></script>
+<script src="animate.js?v=11"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -709,7 +709,7 @@ function fitCanvas(){
 function drawFrame(t, lv, spec){
   LOOK.frame(ctx, cv.width, cv.height, t, lv || 0, spec || null, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt });
 }
-function redraw(){ fitCanvas(); if(!playing) drawFrame(Math.max(audio.currentTime || 0, firstLineTime())); }
+function redraw(){ fitCanvas(); if(!playing) drawFrame(Math.max(audio.currentTime || 0, firstLineTime())); startIdle(); }
 
 /* option chips, built from the LOOK tables */
 const swatch = c => `<span class="sw" style="background:${c}"></span>`;
@@ -722,7 +722,7 @@ function chipsFor(group){
     font: Object.fromEntries(Object.entries(L.FONTS).map(([k,v]) => [k, `<span style="font-family:${v.fam.replace(/"/g,"'")};font-weight:${v.w}">${v.name}</span>`])),
     anim: L.ANIMS, tstyle: L.TSTYLES, align: L.ALIGNS, grade: L.GRADES, fx: L.FX, charMove: L.CHAR_MOVES, charPos: L.CHAR_POS, charCut: L.CHAR_CUT,
     color: Object.fromEntries(Object.entries(L.COLORS).map(([k,v]) => [k, (v[1] === 'rainbow' ? swatch('linear-gradient(90deg,#ff6b6b,#ffd43b,#69db7c,#4dabf7,#da77f2)') : v[1] === 'custom' ? swatch(cur.ink || '#ffffff') : v[1] ? swatch(v[1]) : '') + v[0]])) };
-  const el = document.querySelector(`[data-group="${group}"]`);
+  const el = document.querySelector(`[data-group="${group}"]`); if(!el || !map[group]) return;
   el.innerHTML = Object.entries(map[group]).map(([k, label]) => {
     const on = group === 'fx' ? !!cur.fx[k] : group === 'genkind' ? cur.gen.kind === k : cur[group] === k;
     const hidden = group === 'fx' && k === 'blur' && !['photo','ai'].includes(cur.bg);
@@ -830,9 +830,19 @@ function audioGraph(){
   src.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
 }
 function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
-function loop(){ const lv = level(); drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
+function loop(){ const lv = level(); S.look._ct = null; drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
+/* While paused on the video step, keep the character moving so you can see the movement you picked. */
+let idleRaf = 0, idleLast = 0;
+function idle(ts){
+  idleRaf = 0;
+  if(S.step !== 3 || playing || rec || document.hidden || !S.look.charOn || !S.look.charImg) return;
+  if(ts - idleLast > 33){ idleLast = ts; S.look._ct = ts / 1000; drawFrame(Math.max(audio.currentTime || 0, firstLineTime()), .35 + .3 * Math.max(0, Math.sin(ts / 1000 * 3.2)), null); }
+  idleRaf = requestAnimationFrame(idle);
+}
+function startIdle(){ if(!idleRaf) idleRaf = requestAnimationFrame(idle); }
+document.addEventListener('visibilitychange', startIdle);
 function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); loop(); setTransport(); }
-function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); }catch(e){} setTransport(); }
+function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); }catch(e){} setTransport(); startIdle(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
@@ -1068,7 +1078,9 @@ const A = (() => {
     await setCharLayer(c.blob); store.set('charlayer', c.blob);
     S.look.charOn = true; if(S.look.ty > .32 && S.look.ty < .68 && S.look.charSize > .45) S.look.ty = .22;
     saveState(); $('useChar').disabled = false; $('charStatus').textContent = '';
-    if(S.lines.length) go(3); else $('charStatus').textContent = 'Character ready. Load a song and lyrics in steps 1 and 2 to see it dance in the video.';
+    if(S.lines.length){ go(3); setTimeout(() => { try{ $('charBox').scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
+        $('recText').textContent = 'Your character is in the video. Pick a movement below, and tap ▶ on the video to see it dance to your song.'; }, 150); }
+    else $('charStatus').textContent = 'Character ready. Load a song and lyrics in steps 1 and 2 to see it dance in the video.';
   });
   $('charOwn').addEventListener('change', e => {
     const f = e.target.files[0]; if(!f) return;

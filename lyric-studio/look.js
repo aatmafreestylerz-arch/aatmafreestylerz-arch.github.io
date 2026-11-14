@@ -275,6 +275,7 @@ const CHAR_CUT = { auto:'Remove plain background', off:'Keep its background' };
 function drawChar(c, W, H, t, lv, u, L){
   const img = L.charImg; if(!img || !L.charOn) return;
   const iw = img.width, ih = img.height; if(!iw || !ih) return;
+  if(L._ct != null) t = L._ct;
   let s = H * (L.charSize || .6) / ih; if(iw * s > W * .95) s = W * .95 / iw;
   const dw = iw * s, dh = ih * s, x0 = L.charPos === 'left' ? Math.max(dw / 2, W * .28) : L.charPos === 'right' ? Math.min(W - dw / 2, W * .72) : W / 2;
   let rot = 0, sx = 1, sy = 1, dx = 0, dy = 0; const m = L.charMove || 'dance', beat = Math.abs(Math.sin(t * 3.2));
