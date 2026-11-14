@@ -322,49 +322,78 @@ details.box:not([open]){gap:0}
   <!-- STEP 4 -->
   <section id="s4">
     <h1>Animate you</h1>
-    <p class="sub">Free: make a cartoon of yourself in the Gemini app, add it here, and it dances to your song in the lyric video.</p>
+    <p class="sub">Free AI turns your photo into a character, then makes it move. Join several clips into a full music video.</p>
+
     <div class="box">
-      <p><b>1. Make your character in the Gemini app (free)</b></p>
+      <p><b>Free AI (no payment)</b></p>
+      <p class="sub" style="font-size:14px">Uses free open AI models on Hugging Face. You get a few free runs a day. A free Hugging Face account gives you more: sign up, open <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">Access Tokens</a>, create a <b>Read</b> token and paste it here.</p>
+      <label for="hfToken">Hugging Face token (optional, free) <span id="hfState" style="font-weight:400"></span>
+        <input type="text" id="hfToken" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="hf_…"></label>
+      <p class="sub" style="font-size:12px">Kept only on this device.</p>
+    </div>
+
+    <div class="box">
+      <p><b>1. Make your character</b></p>
+      <label class="drop" for="freePhoto" style="padding:14px"><b id="freePhotoTitle" style="font-size:14px">Choose a clear photo of your face</b><span class="sub" style="font-size:12px">Front-facing, good light, just you</span><input id="freePhoto" type="file" accept="image/*"></label>
+      <img id="freePhotoThumb" class="thumb hide" alt="Your photo">
       <div class="grp"><p class="sub">Style</p><div class="chips" id="cStyles"></div></div>
       <label for="cExtra">Extra idea (optional)<input type="text" id="cExtra" maxlength="160" placeholder="e.g. black hoodie, gold chain, sunglasses"></label>
-      <label for="freePrompt">Prompt to paste into Gemini<textarea id="freePrompt" readonly style="min-height:120px;font-size:14px"></textarea></label>
-      <div class="rowb">
-        <button class="btn" id="copyPrompt">Copy prompt</button>
-        <a class="btn alt" id="openGemini" href="https://gemini.google.com/app" target="_blank" rel="noopener">Open Gemini</a>
-      </div>
-      <ol class="sub" style="margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px">
-        <li>Tap <b>Copy prompt</b>, then <b>Open Gemini</b>.</li>
-        <li>In Gemini, attach a clear photo of your face, paste the prompt and send.</li>
-        <li>Save the picture it makes (open it, then download or long-press and save).</li>
-        <li>Come back here and add it in step 2 below.</li>
-      </ol>
+      <button class="btn" id="freeMakeChar" disabled>Make my character (free)</button>
+      <p class="status" id="freeCharStatus" role="status"></p>
+      <details class="grp"><summary class="sub" style="cursor:pointer">Or make it in the Gemini app instead</summary>
+        <label for="freePrompt">Prompt to paste into Gemini<textarea id="freePrompt" readonly style="min-height:110px;font-size:14px"></textarea></label>
+        <div class="rowb"><button class="btn alt sm" id="copyPrompt">Copy prompt</button><a class="btn alt sm" id="openGemini" href="https://gemini.google.com/app" target="_blank" rel="noopener">Open Gemini</a></div>
+      </details>
     </div>
+
     <div class="box">
-      <p><b>2. Add your character</b></p>
-      <label class="drop" for="charOwn" style="padding:16px"><b style="font-size:15px">Add the picture from Gemini</b><span class="sub" style="font-size:13px">A plain background is removed automatically</span><input id="charOwn" type="file" accept="image/*"></label>
-      <p class="status" id="charStatus" role="status"></p>
+      <p><b>2. Your characters</b></p>
       <div class="cgrid" id="charGrid"></div>
-      <button class="btn" id="useChar" disabled>Put this character in my lyric video</button>
+      <p class="status" id="charStatus" role="status"></p>
+      <label class="drop" for="charOwn" style="padding:12px"><b style="font-size:14px">Add a character picture you made elsewhere</b><span class="sub" style="font-size:12px">A plain background is removed automatically</span><input id="charOwn" type="file" accept="image/*"></label>
+      <button class="btn alt" id="useChar" disabled>Use this picture in my lyric video</button>
     </div>
+
     <div class="box">
-      <p><b>3. Make it move like a real person (AI video)</b></p>
-      <p class="sub" style="font-size:14px">A picture can only bounce and sway. For real dance moves, turn your character picture into a short dancing video with one of Google's video tools, then add it here. The app removes the green background and puts the dancer in your lyric video.</p>
-      <label for="vidPrompt">Prompt to use with your character picture<textarea id="vidPrompt" readonly style="min-height:110px;font-size:14px"></textarea></label>
-      <button class="btn alt" id="copyVidPrompt">Copy prompt</button>
-      <div class="rowb">
-        <a class="btn alt sm" href="https://vids.google.com" target="_blank" rel="noopener">Google Vids</a>
-        <a class="btn alt sm" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener">Google Flow</a>
-        <a class="btn alt sm" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a>
+      <p><b>3. Make it move (free)</b></p>
+      <p class="sub" style="font-size:14px">Uses the character you picked above. Each clip is a few seconds long; make several and they play one after another through your song.</p>
+      <div class="chips" id="fcMode"><button class="chip" data-m="describe" aria-pressed="true">Describe the moves</button><button class="chip" data-m="copy" aria-pressed="false">Copy moves from a dance video</button></div>
+      <div id="fcDescribe" class="grp" style="gap:10px">
+        <div class="chips" id="moveIdeas"></div>
+        <label for="freeClipPrompt">What the character does<textarea id="freeClipPrompt" style="min-height:90px"></textarea></label>
+        <label for="clipSecs">Clip length <span id="clipSecsV"></span><input type="range" id="clipSecs" min="2" max="5" step="0.5" value="3.5"></label>
+        <button class="btn" id="freeMakeClip" disabled>Make this clip (free)</button>
       </div>
-      <ol class="sub" style="margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px">
-        <li>Open one of these tools and choose to make a video from a picture.</li>
-        <li>Add your character picture (the green-background one from step 1), paste the prompt, and create.</li>
-        <li>Download the video, then add it below.</li>
-      </ol>
-      <p class="sub" style="font-size:13px">Free allowances differ by account and change often, so use whichever tool lets you. Make a few clips and pick the best one.</p>
-      <label class="drop" for="charVidFile" style="padding:16px"><b style="font-size:15px">Add the dancing video</b><span class="sub" style="font-size:13px">Its green background is removed live</span><input id="charVidFile" type="file" accept="video/*"></label>
-      <p class="status" id="charVidStatus" role="status"></p>
+      <div id="fcCopy" class="grp hide" style="gap:10px">
+        <p class="sub" style="font-size:14px">Record yourself dancing on your phone (or use any dance video with one person). Your character will do the same moves.</p>
+        <label class="drop" for="danceRef" style="padding:12px"><b id="danceRefTitle" style="font-size:14px">Choose the dance video</b><input id="danceRef" type="file" accept="video/*"></label>
+        <label for="moveSecs">Length <span id="moveSecsV"></span><input type="range" id="moveSecs" min="1" max="3" step="1" value="2"></label>
+        <p class="sub" style="font-size:12px">This one uses more of the free daily limit (about 2 clips a day with a free account).</p>
+        <button class="btn" id="freeMove" disabled>Copy the moves (free)</button>
+      </div>
+      <p class="status" id="freeClipStatus" role="status"></p>
     </div>
+
+    <div class="box">
+      <p><b>4. Your clips</b> <span class="sub" id="clipCount"></span></p>
+      <div class="grp" id="clipLib"></div>
+      <label class="drop" for="charVidFile" style="padding:12px"><b style="font-size:14px">Add a clip from another app</b><span class="sub" style="font-size:12px">Seedance (Dreamina), Kling, PixVerse, Hailuo, Google Vids… Use a plain green background so it can be cut out.</span><input id="charVidFile" type="file" accept="video/*"></label>
+      <p class="status" id="charVidStatus" role="status"></p>
+      <details class="grp"><summary class="sub" style="cursor:pointer">Prompt and links for other free video apps</summary>
+        <label for="vidPrompt">Prompt to use with your character picture<textarea id="vidPrompt" readonly style="min-height:100px;font-size:14px"></textarea></label>
+        <button class="btn alt sm" id="copyVidPrompt">Copy prompt</button>
+        <div class="chips">
+          <a class="chip" href="https://dreamina.capcut.com/ai-tool/video/generate" target="_blank" rel="noopener">Dreamina (Seedance)</a>
+          <a class="chip" href="https://app.klingai.com" target="_blank" rel="noopener">Kling</a>
+          <a class="chip" href="https://app.pixverse.ai" target="_blank" rel="noopener">PixVerse</a>
+          <a class="chip" href="https://hailuoai.video" target="_blank" rel="noopener">Hailuo</a>
+          <a class="chip" href="https://vids.google.com" target="_blank" rel="noopener">Google Vids</a>
+        </div>
+        <p class="sub" style="font-size:12px">Each gives some free videos per day or month; amounts change often.</p>
+      </details>
+      <button class="btn" id="useClips" disabled>Use my clips in the music video</button>
+    </div>
+
     <details class="box" id="paidBox">
       <summary><b>Paid extras</b> <span class="sub">(need a ₹3,000 Google top-up)</span></summary>
       <p class="sub" style="font-size:13px">Only if you add credit to your Gemini paid key: make characters inside this app, and moving AI clips of your character.</p>
@@ -393,10 +422,10 @@ details.box:not([open]){gap:0}
   </section>
 </div>
 
-<script src="look.js?v=12"></script>
-<script src="animate.js?v=12"></script>
+<script src="look.js?v=13"></script>
+<script src="animate.js?v=13"></script>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
-<script src="export.js?v=12"></script>
+<script src="export.js?v=13"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -415,7 +444,7 @@ function go(n, fromHistory){
   if(n !== 2) stopTap();
   if(n === 3){ renderChips(); redraw(); setTime(); setTransport(); }
   if(n !== 3 && playing && !rec){ audio.pause(); stopLoop(); }
-  if(n !== 3){ try{ charVid.pause(); }catch(e){} }
+  if(n !== 3){ try{ charVid.pause(); S.clips.forEach(c => c.el.pause()); }catch(e){} }
   if(n === 4) A.enter();
   if(n !== 4){ try{ $('clipVideo').pause(); }catch(e){} }
   window.scrollTo(0,0);
@@ -877,20 +906,21 @@ function audioGraph(){
   src.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
 }
 function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
-function loop(){ const lv = level(); S.look._ct = null; drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
+function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
 /* While paused on the video step, keep the character moving so you can see the movement you picked. */
 let idleRaf = 0, idleLast = 0;
 function idle(ts){
   idleRaf = 0;
-  if(S.step !== 3 || playing || rec || document.hidden || !S.look.charOn || !(S.look.charImg || S.look.charVid)){ if(!playing) try{ charVid.pause(); }catch(e){} return; }
+  if(S.step !== 3 || playing || rec || document.hidden || !S.look.charOn || !(S.look.charImg || S.look.charVid || S.clips.length)){ if(!playing) try{ charVid.pause(); }catch(e){} return; }
   if(S.look.charSrc === 'video' && S.look.charVid && charVid.paused) charVid.play().catch(() => {});
+  if(S.look.charSrc === 'clips'){ if(!S.look.charVid) syncClips(audio.currentTime || 0, false); if(S.look.charVid && S.look.charVid.paused){ S.look.charVid.loop = true; S.look.charVid.play().catch(() => {}); } }
   if(ts - idleLast > 33){ idleLast = ts; S.look._ct = ts / 1000; drawFrame(Math.max(audio.currentTime || 0, firstLineTime()), .35 + .3 * Math.max(0, Math.sin(ts / 1000 * 3.2)), null); }
   idleRaf = requestAnimationFrame(idle);
 }
 function startIdle(){ if(!idleRaf) idleRaf = requestAnimationFrame(idle); }
 document.addEventListener('visibilitychange', startIdle);
 function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); if(S.look.charVid) charVid.play().catch(() => {}); loop(); setTransport(); }
-function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); charVid.pause(); }catch(e){} setTransport(); startIdle(); }
+function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
@@ -926,7 +956,8 @@ $('seek').addEventListener('input', () => {
   if(rec) return; seeking = true; const d = S.dur || audio.duration || 0;
   const t = d * $('seek').value / 1000; audio.currentTime = t;
   if(S.look.videoEl && bgVid.duration) bgVid.currentTime = t % bgVid.duration;
-  if(S.look.charVid && charVid.duration) charVid.currentTime = t % charVid.duration;
+  if(S.look.charSrc === 'video' && charVid.duration) charVid.currentTime = t % charVid.duration;
+  if(S.look.charSrc === 'clips'){ S.clips.forEach(c => c.el.pause()); S.look.charVid = null; syncClips(t, false); }
   $('tlabel').textContent = mmss(t) + ' / ' + mmss(d); if(!playing) drawFrame(t);
 });
 $('seek').addEventListener('change', () => { seeking = false; });
@@ -1004,13 +1035,13 @@ $('exGo').addEventListener('click', async () => {
   const [w, h] = exShape(), [W, H] = EXPORT.dims(w, h, EX.q);
   $('exSetup').classList.add('hide'); $('exRun').classList.remove('hide'); $('exBar').style.width = '0%'; $('exText').textContent = 'Getting ready…';
   EX.ctl = new AbortController(); let wl = null; try{ if(navigator.wakeLock) wl = await navigator.wakeLock.request('screen'); }catch(e){}
-  const useBg = S.look.bg === 'video' && S.look.videoEl, useChar = S.look.charOn && S.look.charSrc === 'video' && S.look.charVid;
-  try{ bgVid.pause(); charVid.pause(); }catch(e){}
+  const useBg = S.look.bg === 'video' && S.look.videoEl, useChar = S.look.charOn && S.look.charSrc === 'video' && S.look.charVid, useClips = S.look.charOn && S.look.charSrc === 'clips' && S.clips.length;
+  try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => c.el.pause()); }catch(e){}
   await LOOK.loadFonts(S.look.font);
   const t0 = Date.now();
   try{
     const blob = await EXPORT.render({ file: S.file, W, H, fps: EX.fps, q: EX.q, signal: EX.ctl.signal,
-      prepare: async t => { if(useBg) await seekTo(bgVid, t); if(useChar) await seekTo(charVid, t); },
+      prepare: async t => { if(useBg) await seekTo(bgVid, t); if(useChar) await seekTo(charVid, t); if(useClips){ const a = clipAt(t); if(a){ S.look.charVid = a.el; await seekTo(a.el, a.local); } } },
       draw: (c, W2, H2, t, lv, spec) => { S.look._ct = null; LOOK.frame(c, W2, H2, t, lv, spec, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt }); },
       preview: src => { try{ ctx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){} },
       onProgress: (i, n, eta) => { $('exBar').style.width = (i / n * 100).toFixed(1) + '%'; $('exText').textContent = 'Rendering ' + W + '×' + H + ' at ' + EX.fps + ' fps: ' + Math.round(i / n * 100) + '%' + (i > 30 ? ', about ' + mmss(eta) + ' left' : '') + '. Keep this screen open.'; } });
@@ -1086,9 +1117,9 @@ async function setCharVideo(blob){
   return false;
 }
 function charUI(){
-  const has = !!(S.look.charImg || S.look.charVid);
+  const has = !!(S.look.charImg || S.look.charVid || S.clips.length);
   $('charNone').classList.toggle('hide', has); $('charCtl').classList.toggle('hide', !has);
-  $('charSrcRow').classList.toggle('hide', !S.look.charVid);
+  $('charSrcRow').classList.toggle('hide', !(S.look.charVid || S.clips.length));
   $('charOnCb').checked = !!S.look.charOn; $('charGlowCb').checked = S.look.charGlow !== false;
   $('charSize').value = S.look.charSize; $('charSizeV').textContent = Math.round(S.look.charSize * 100) + '% of the height';
 }
@@ -1096,6 +1127,29 @@ $('goAnimate').addEventListener('click', () => go(4)); $('changeChar').addEventL
 $('charOnCb').addEventListener('change', () => { S.look.charOn = $('charOnCb').checked; saveState(); redraw(); });
 $('charGlowCb').addEventListener('change', () => { S.look.charGlow = $('charGlowCb').checked; saveState(); redraw(); });
 $('charSize').addEventListener('input', () => { S.look.charSize = +$('charSize').value; charUI(); saveState(); redraw(); });
+
+/* ---------- clip library: several character clips play one after another through the song ---------- */
+S.clips = []; let A_lib = () => {};
+function makeClipEl(blob){ const el = document.createElement('video'); el.muted = true; el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = URL.createObjectURL(blob); return el; }
+async function addClip(blob, label, quiet){
+  const el = makeClipEl(blob);
+  const ok = await new Promise(res => { el.addEventListener('loadeddata', () => res(true), { once:true }); el.addEventListener('error', () => res(false), { once:true }); setTimeout(() => res(el.readyState >= 2), 6000); });
+  if(!ok){ URL.revokeObjectURL(el.src); return false; }
+  S.clips.push({ blob, url: el.src, el, label: label || '' }); if(!quiet){ saveClips(); A_lib(); } return true;
+}
+function saveClips(){ store.set('clips', S.clips.map(c => ({ blob: c.blob, label: c.label }))); }
+function clipAt(t){
+  const list = S.clips.filter(c => c.el.duration > 0); if(!list.length) return null;
+  const total = list.reduce((a, c) => a + c.el.duration, 0); let x = ((t % total) + total) % total;
+  for(const c of list){ if(x < c.el.duration - .02) return { el: c.el, local: x }; x -= c.el.duration; }
+  return { el: list[0].el, local: 0 };
+}
+function syncClips(t, live){
+  if(S.look.charSrc !== 'clips') return;
+  const a = clipAt(t); if(!a){ S.look.charVid = null; return; }
+  if(S.look.charVid !== a.el){ try{ S.look.charVid && S.look.charVid.pause(); }catch(e){} S.look.charVid = a.el; try{ a.el.currentTime = a.local; }catch(e){} if(live) a.el.play().catch(() => {}); }
+  else if(live){ if(a.el.paused) a.el.play().catch(() => {}); if(Math.abs(a.el.currentTime - a.local) > .35) try{ a.el.currentTime = a.local; }catch(e){} }
+}
 
 /* ---------- step 4: animate you ---------- */
 const A = (() => {
@@ -1123,6 +1177,8 @@ const A = (() => {
     $('makeClip').disabled = !ok || st.busy; $('clipNeeds').classList.toggle('hide', ok);
     $('makeChar').disabled = !st.photo || st.busy;
     $('useChar').disabled = !ok;
+    $('freeMakeClip').disabled = !ok || st.busy; $('freeMove').disabled = !ok || st.busy || !st.dance;
+    $('freeMakeChar').disabled = !st.freePhoto || st.busy;
   }
   function lineOptions(){
     const cur = $('clipLine').value;
@@ -1136,7 +1192,7 @@ const A = (() => {
       (line ? ' Mood of the lyric: "' + line + '".' : '') + ' Keep the same character, face and outfit throughout. No text on screen.';
   }
   async function saveAll(){
-    store.set('anim', { photo: st.photo, style: st.style, ratio: st.ratio, extra: $('cExtra').value, pick: st.pick,
+    store.set('anim', { freePhoto: st.freePhoto, photo: st.photo, style: st.style, ratio: st.ratio, extra: $('cExtra').value, pick: st.pick,
       chars: st.chars.filter(c => c.blob).map(c => c.blob), prompt: $('clipPrompt').value, clips: st.clips.slice(-6).map(c => ({ blob:c.blob, prompt:c.prompt, at:c.at })) });
   }
   function history(){
@@ -1193,15 +1249,9 @@ const A = (() => {
   });
   $('charVidFile').addEventListener('change', async e => {
     const f = e.target.files[0]; if(!f) return; e.target.value = '';
-    $('charVidStatus').textContent = 'Loading your dancing video…';
-    const ok = await setCharVideo(f);
-    if(!ok){ $('charVidStatus').textContent = 'This video could not be opened here. Try an MP4 file.'; return; }
-    store.set('charvid', f);
-    S.look.charSrc = 'video'; S.look.charOn = true; S.look.charMove = 'still'; if(S.look.ty > .32 && S.look.ty < .68) S.look.ty = .22; saveState();
-    $('charVidStatus').textContent = '';
-    if(S.lines.length){ go(3); setTimeout(() => { try{ $('charBox').scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
-      $('recText').textContent = 'Your dancing character is in the video. Tap ▶ to watch it with your song.'; }, 150); }
-    else $('charVidStatus').textContent = 'Dancing video ready. Load a song and lyrics in steps 1 and 2 to see it in the video.';
+    $('charVidStatus').textContent = 'Adding your clip…';
+    const ok = await addClip(f, 'From another app');
+    $('charVidStatus').textContent = ok ? 'Clip added to your clips.' : 'This video could not be opened here. Try an MP4 file.';
   });
   $('copyPrompt').addEventListener('click', async () => {
     const t = $('freePrompt').value; let ok = false;
@@ -1236,13 +1286,86 @@ const A = (() => {
   $('clipVideo').addEventListener('pause', () => { if(S.step === 4) audio.pause(); });
   async function load(){
     const d = await store.get('anim'); if(!d) return;
+    if(d.freePhoto){ st.freePhoto = d.freePhoto; $('freePhotoThumb').src = url(d.freePhoto); $('freePhotoThumb').classList.remove('hide'); $('freePhotoTitle').textContent = 'Photo chosen. Tap to change it'; }
     st.style = d.style || st.style; st.ratio = d.ratio || st.ratio; $('cExtra').value = d.extra || ''; $('clipPrompt').value = d.prompt || '';
     if(d.photo){ st.photo = d.photo; $('charPhotoThumb').src = url(d.photo); $('charPhotoThumb').classList.remove('hide'); $('charPhotoTitle').textContent = 'Photo chosen. Tap to change it'; }
     st.chars = (d.chars || []).map(b => ({ blob:b, url:url(b) })); st.pick = st.chars.length ? Math.min(d.pick >= 0 ? d.pick : 0, st.chars.length - 1) : -1;
     st.clips = (d.clips || []).map(c => Object.assign({}, c, { url:url(c.blob) })); history();
   }
+  /* ----- free AI ----- */
+  const hfKey = () => { const v = $('hfToken').value.trim(); return /^hf_/.test(v) ? v : ''; };
+  try{ $('hfToken').value = localStorage.getItem('ls.hf') || ''; }catch(e){}
+  const hfUI = () => { const v = $('hfToken').value.trim(); $('hfState').textContent = !v ? '· not added (fewer free runs)' : /^hf_/.test(v) ? '· saved' : '· should start with hf_'; };
+  hfUI(); $('hfToken').addEventListener('input', () => { try{ localStorage.setItem('ls.hf', $('hfToken').value.trim()); }catch(e){} hfUI(); });
+  $('freePhoto').addEventListener('change', e => { const f = e.target.files[0]; if(!f) return; st.freePhoto = f; $('freePhotoThumb').src = url(f); $('freePhotoThumb').classList.remove('hide'); $('freePhotoTitle').textContent = 'Photo chosen. Tap to change it'; grid(); saveAll(); });
+  async function busyRun(btn, statusEl, label, fn){
+    if(st.busy) return; st.busy = true; grid(); const old = btn.textContent; btn.textContent = label;
+    let wake = null; try{ if(navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); }catch(e){}
+    try{ await fn(t => { statusEl.textContent = t; }); }
+    catch(e){ statusEl.textContent = e && e.quota ? e.message : (e && e.message ? e.message : String(e)); }
+    if(wake) wake.release().catch(() => {}); st.busy = false; btn.textContent = old; grid();
+  }
+  $('freeMakeChar').addEventListener('click', () => busyRun($('freeMakeChar'), $('freeCharStatus'), 'Making your character…', async say => {
+    const b = await ANIM.FREE.character(st.freePhoto, st.style, $('cExtra').value.trim(), hfKey(), say);
+    st.chars = st.chars.filter(c => c.blob); st.chars.push({ blob:b, url:url(b) }); st.pick = st.chars.length - 1; saveAll();
+    say('Done. It\'s added to your characters below. Not happy? Tap again for another version, or try another style.');
+  }));
+  let fcMode = 'describe';
+  $('fcMode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if(!b) return; fcMode = b.dataset.m;
+    document.querySelectorAll('#fcMode [data-m]').forEach(x => x.setAttribute('aria-pressed', x === b)); $('fcDescribe').classList.toggle('hide', fcMode !== 'describe'); $('fcCopy').classList.toggle('hide', fcMode !== 'copy'); });
+  const IDEAS = {
+    'Dance': 'dances energetically like a real person to a folk-trap beat: footwork, arm swings, hip and shoulder moves, head nods',
+    'Hip-hop': 'does hip-hop dance moves: bounce, arm waves, a quick spin, then points at the camera',
+    'Folk steps': 'does lively Indian folk dance steps with claps above the head and a turn',
+    'Sing': 'sings passionately into a handheld microphone, moving to the rhythm, eyes closed then smiling at the camera',
+    'Walk in': 'walks confidently towards the camera with swagger, then strikes a pose',
+    'Jump': 'jumps high with joy and lands in a dance pose',
+    'Wave': 'waves to a cheering crowd and smiles, swaying to the music'
+  };
+  $('moveIdeas').innerHTML = Object.keys(IDEAS).map(k => `<button class="chip" data-idea="${k}">${k}</button>`).join('');
+  const clipPromptFor = what => 'The character ' + what + '. Full body always in frame, camera completely still, keep the plain bright green background, smooth natural motion, same face and outfit throughout.';
+  if(!$('freeClipPrompt').value) $('freeClipPrompt').value = clipPromptFor(IDEAS['Dance']);
+  $('moveIdeas').addEventListener('click', e => { const b = e.target.closest('[data-idea]'); if(!b) return; $('freeClipPrompt').value = clipPromptFor(IDEAS[b.dataset.idea]); });
+  const secUI = () => { $('clipSecsV').textContent = $('clipSecs').value + ' s'; $('moveSecsV').textContent = $('moveSecs').value + ' s'; };
+  secUI(); $('clipSecs').addEventListener('input', secUI); $('moveSecs').addEventListener('input', secUI);
+  $('freeMakeClip').addEventListener('click', () => busyRun($('freeMakeClip'), $('freeClipStatus'), 'Making your clip…', async say => {
+    const c = st.chars[st.pick]; const v = await ANIM.FREE.clip(c.blob, $('freeClipPrompt').value.trim(), +$('clipSecs').value, hfKey(), say);
+    await addClip(v, $('freeClipPrompt').value.trim().slice(14, 60)); say('Clip ready and added to your clips (step 4). Make more for a longer music video.');
+  }));
+  $('danceRef').addEventListener('change', e => { const f = e.target.files[0]; if(!f) return; st.dance = f; $('danceRefTitle').textContent = 'Dance video chosen. Tap to change it'; grid(); });
+  $('freeMove').addEventListener('click', () => busyRun($('freeMove'), $('freeClipStatus'), 'Copying the moves…', async say => {
+    const c = st.chars[st.pick]; const v = await ANIM.FREE.move(c.blob, st.dance, +$('moveSecs').value, hfKey(), say);
+    await addClip(v, 'Copied dance moves'); say('Done: your character does your moves. Added to your clips (step 4).');
+  }));
+  /* ----- clip library ----- */
+  function libUI(){
+    $('clipCount').textContent = S.clips.length ? '(' + S.clips.length + ', ' + mmss(S.clips.reduce((a, c) => a + (c.el.duration || 0), 0)) + ' total)' : '';
+    $('clipLib').innerHTML = S.clips.length ? S.clips.map((c, i) => `<div class="ln" style="flex-direction:row;align-items:center;gap:10px">
+        <video src="${c.url}" muted playsinline loop preload="metadata" data-prev="${i}" style="width:54px;height:86px;object-fit:cover;border-radius:8px;background:#000"></video>
+        <div style="flex:1;min-width:0"><b style="font-size:14px">Clip ${i + 1}</b> <span class="sub" style="font-size:12px">${(c.el.duration || 0).toFixed(1)} s</span><div class="sub" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(c.label || '')}</div></div>
+        <button class="ic" data-up="${i}" aria-label="Move clip ${i + 1} earlier">↑</button><button class="ic" data-down="${i}" aria-label="Move clip ${i + 1} later">↓</button><button class="ic del" data-rm="${i}" aria-label="Remove clip ${i + 1}">✕</button></div>`).join('')
+      : '<p class="sub" style="font-size:14px">No clips yet. Make some in step 3, or add clips from other apps below.</p>';
+    $('useClips').disabled = !S.clips.length;
+    charUI();
+  }
+  $('clipLib').addEventListener('click', e => {
+    const b = e.target.closest('[data-up],[data-down],[data-rm],[data-prev]'); if(!b) return; const d = b.dataset;
+    if(d.prev !== undefined){ b.paused ? b.play().catch(() => {}) : b.pause(); return; }
+    const i = +(d.up ?? d.down ?? d.rm);
+    if(d.rm !== undefined){ const [c] = S.clips.splice(i, 1); try{ c.el.pause(); URL.revokeObjectURL(c.url); }catch(e){} }
+    else { const k = d.up !== undefined ? i - 1 : i + 1; if(k < 0 || k >= S.clips.length) return; [S.clips[i], S.clips[k]] = [S.clips[k], S.clips[i]]; }
+    saveClips(); libUI(); if(S.look.charSrc === 'clips'){ S.look.charVid = null; }
+  });
+  $('useClips').addEventListener('click', () => {
+    if(!S.clips.length) return;
+    S.look.charSrc = 'clips'; S.look.charOn = true; S.look.charMove = 'still'; if(S.look.ty > .32 && S.look.ty < .68) S.look.ty = .22; saveState();
+    if(S.lines.length){ go(3); setTimeout(() => { try{ $('charBox').scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
+      $('recText').textContent = 'Your ' + S.clips.length + ' clip' + (S.clips.length > 1 ? 's play' : ' plays') + ' one after another through the song. Tap ▶ to watch.'; }, 150); }
+    else $('charVidStatus').textContent = 'Clips ready. Load a song and lyrics in steps 1 and 2 to see them in the video.';
+  });
+  A_lib = libUI;
   const ready = load();
-  return { enter(){ ready.then(() => { chips(); grid(); lineOptions(); }); }, clips: () => st.clips };
+  return { enter(){ ready.then(() => { chips(); grid(); lineOptions(); libUI(); }); }, clips: () => st.clips };
 })();
 
 /* ---------- start ---------- */
@@ -1263,7 +1386,9 @@ async function restore(){
       $('resumeBox').classList.remove('hide');
     }
   }
-  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs; if(charlayer) await setCharLayer(charlayer); if(charvid) await setCharVideo(charvid); if(S.look.charSrc === 'video' && !S.look.charVid) S.look.charSrc = 'image';
+  if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs; if(charlayer) await setCharLayer(charlayer); const savedClips = await store.get('clips'); if(Array.isArray(savedClips)) for(const c of savedClips) if(c && c.blob) await addClip(c.blob, c.label, true);
+  if(charvid && !(savedClips && savedClips.length)){ await addClip(charvid, 'Dancing video', true); saveClips(); }
+  if(S.look.charSrc === 'video'){ S.look.charSrc = S.clips.length ? 'clips' : 'image'; } if(S.look.charSrc === 'clips' && !S.clips.length) S.look.charSrc = 'image';
   unlock(); if(S.lines.length) renderLines(); syncEngine();
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;

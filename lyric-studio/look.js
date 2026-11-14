@@ -272,7 +272,7 @@ const FX = { pulse:'Beat pulse', shake:'Camera shake', zoompulse:'Zoom on beat',
 const CHAR_MOVES = { dance:'Dance', bounce:'Bounce to beat', sway:'Sway', float:'Float', pulse:'Pulse', walk:'Side to side', jump:'Jump on beat', spin:'Turn around', still:'Still' };
 const CHAR_POS = { center:'Center', left:'Left', right:'Right' };
 const CHAR_CUT = { auto:'Remove plain background', off:'Keep its background' };
-const CHAR_SRC = { video:'Dancing video', image:'Picture' };
+const CHAR_SRC = { clips:'My clips (moving)', image:'Picture' };
 /* Live background removal for a character video (green screen or any plain color). */
 let keyCv = null, keyCache = { v:null, t:-1, mode:'', w:0 };
 function keyedVideoFrame(v, mode){
@@ -301,7 +301,8 @@ function keyedVideoFrame(v, mode){
 }
 function drawChar(c, W, H, t, lv, u, L){
   if(!L.charOn) return;
-  const useVid = L.charSrc === 'video' && L.charVid && L.charVid.readyState >= 2;
+  const useVid = (L.charSrc === 'video' || L.charSrc === 'clips') && L.charVid && L.charVid.readyState >= 2;
+  if(L.charSrc === 'clips' && !useVid) return;
   const img = useVid ? keyedVideoFrame(L.charVid, L.charCut || 'auto') : L.charImg; if(!img) return;
   const iw = img.width, ih = img.height; if(!iw || !ih) return;
   if(L._ct != null) t = L._ct;

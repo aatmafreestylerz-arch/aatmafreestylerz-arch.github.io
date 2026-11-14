@@ -162,5 +162,71 @@ function friendly(e, paid){
   return 'Google said: ' + m;
 }
 
-window.ANIM = { STYLES, character, background, clip, friendly };
+/* ---------- Free AI through Hugging Face (open models: Qwen Image Edit, FLUX, Wan 2.2) ----------
+   Each service is a list of public "Spaces" tried in order, so if one is down the next is used. */
+const GC_URL = 'https://cdn.jsdelivr.net/npm/@gradio/client@2.7.2/dist/browser.js';
+let gcMod = null; const gc = async () => gcMod || (gcMod = await import(GC_URL));
+const FREE_SPACES = {
+  edit:  [ { id:'multimodalart/Qwen-Image-Edit-Fast', ep:'/infer', args: (img, p) => ({ image: img, prompt: p, seed: 0, randomize_seed: true, true_guidance_scale: 1, num_inference_steps: 8, rewrite_prompt: false }) },
+           { id:'black-forest-labs/FLUX.1-Kontext-Dev', ep:'/infer', args: (img, p) => ({ input_image: img, prompt: p, seed: 0, randomize_seed: true, guidance_scale: 2.5, steps: 24 }) },
+           { id:'Qwen/Qwen-Image-Edit', ep:'/infer', args: (img, p) => ({ image: img, prompt: p, seed: 0, randomize_seed: true, true_guidance_scale: 4, num_inference_steps: 30, rewrite_prompt: false }) } ],
+  i2v:   [ { id:'zerogpu-aoti/wan2-2-fp8da-aoti-faster', ep:'/generate_video', args: (img, p, d) => ({ input_image: img, prompt: p, steps: 6, negative_prompt: 'blurry, distorted body, extra limbs, deformed hands, text, watermark, camera shake', duration_seconds: d, guidance_scale: 1, guidance_scale_2: 1, seed: 0, randomize_seed: true }) },
+           { id:'r3gm/wan2-2-fp8da-aoti-preview', ep:'/generate_video', args: (img, p, d) => ({ input_image: img, prompt: p, steps: 6, negative_prompt: 'blurry, distorted body, extra limbs, text, watermark', duration_seconds: d, guidance_scale: 1, guidance_scale_2: 1, seed: 0, randomize_seed: true }) } ],
+  move:  [ { id:'alexnasa/Wan2.2-Animate-ZEROGPU', ep:'/animate_scene', args: (img, vid, d) => ({ input_video: vid, max_duration_s: d, edited_frame: img, rc_str: 'Pose Retarget', resolution_choice: 'Low Res' }) } ]
+};
+function firstUrl(o){
+  let u = null; const walk = x => { if(u || x == null) return; if(typeof x === 'string'){ if(/^https?:\/\//.test(x)) u = x; return; }
+    if(Array.isArray(x)) return x.forEach(walk); if(typeof x === 'object'){ if(x.url) { u = x.url; return; } Object.values(x).forEach(walk); } };
+  walk(o); return u;
+}
+function freeError(e){
+  const m = String(e && (e.message || e.title || (e.original_msg) || JSON.stringify(e)) || e);
+  if(/ZeroGPU|quota|exceeded/i.test(m)) return { quota: true, msg: 'Today\'s free AI limit is used up. It resets 24 hours after your first use today. Adding a free Hugging Face token (below) gives you more each day.' };
+  if(/sleeping|paused|building|RUNTIME_ERROR|not found|404/i.test(m)) return { down: true, msg: m };
+  return { msg: m };
+}
+async function runFree(kind, makeArgs, token, onStatus){
+  const { Client, handle_file } = await gc(); let last = null;
+  for(const sp of FREE_SPACES[kind]){
+    try{
+      onStatus && onStatus('Connecting to the free AI (' + sp.id.split('/')[1] + ')…');
+      const cli = await Client.connect(sp.id, token ? { token, hf_token: token } : undefined);
+      onStatus && onStatus('Waiting in the free AI queue… this can take a minute or two.');
+      const job = cli.submit(sp.ep, makeArgs(sp, handle_file));
+      let out = null;
+      for await (const ev of job){
+        if(ev.type === 'status'){ if(ev.stage === 'error') throw new Error(ev.message || 'failed');
+          if(ev.queue && ev.position != null) onStatus && onStatus('In the free AI queue: position ' + (ev.position + 1) + '…');
+          else if(ev.stage === 'pending' || ev.stage === 'generating') onStatus && onStatus('The free AI is working on it…'); }
+        if(ev.type === 'data'){ out = ev.data; break; }
+      }
+      const url = firstUrl(out); if(!url) throw new Error('The free AI returned nothing.');
+      const r = await fetch(url); if(!r.ok) throw new Error('Could not download the result (HTTP ' + r.status + ').');
+      return await r.blob();
+    }catch(e){ last = e; const fe = freeError(e); if(fe.quota) throw Object.assign(new Error(fe.msg), { quota: true }); }
+  }
+  const fe = freeError(last); throw new Error('The free AI couldn\'t do it right now: ' + fe.msg + '. Try again in a few minutes.');
+}
+const FREE = {
+  /* your photo -> character picture on green */
+  character(photoBlob, style, extra, token, onStatus){
+    const st = STYLES[style] || STYLES.anime;
+    const p = `Turn this person into ${st.p}. Keep the same face shape, skin tone, hairstyle, facial hair and likeness so it clearly looks like him. ` +
+      `Show the full body from head to feet, standing in a confident dance pose, facing the camera. Plain, solid, bright green background (#00FF00), no shadows, no floor, no text.` + (extra ? ' Also: ' + extra + '.' : '');
+    return (async () => { const v = (await photoVariants(photoBlob))[0];
+      return runFree('edit', (sp, hf) => sp.args(hf(v.blob), p), token, onStatus); })();
+  },
+  /* character picture -> moving clip from a description */
+  clip(charBlob, prompt, seconds, token, onStatus){
+    return (async () => { const v = await shrink(charBlob, 832, 'image/png');
+      return runFree('i2v', (sp, hf) => sp.args(hf(v.blob), prompt, Math.max(1.5, Math.min(5, seconds || 3.5))), token, onStatus); })();
+  },
+  /* character picture + any dance video -> the character does those exact moves */
+  move(charBlob, danceVideo, seconds, token, onStatus){
+    return (async () => { const v = await shrink(charBlob, 832, 'image/png');
+      return runFree('move', (sp, hf) => sp.args(hf(v.blob), hf(danceVideo), Math.max(1, Math.min(3, Math.round(seconds || 2)))), token, onStatus); })();
+  }
+};
+
+window.ANIM = { STYLES, character, background, clip, friendly, FREE };
 })();
