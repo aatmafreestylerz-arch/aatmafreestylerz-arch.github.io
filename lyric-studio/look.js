@@ -162,6 +162,7 @@ const BG = {
   gen: { name:'Generated', sw:'conic-gradient(#f03e3e,#fcc419,#40c057,#228be6,#ae3ec9,#f03e3e)', ink:'#ffffff', acc:'#ffd166', draw(c,W,H,t,lv,u,spec,L){ genDraw(c,W,H,t,lv,u,spec,L.gen || GEN_DEFAULT); } },
   photo: { name:'My photo', sw:'#adb5bd', ink:'#ffffff', acc:'#ffd166', draw(c,W,H,t,lv,u,spec,L){ mediaDraw(c,W,H,t,lv, L.photo, L.fx.blur && L.photoBlur ? L.photoBlur : null); } },
   ai: { name:'AI background', sw:'linear-gradient(135deg,#7048e8,#e64980)', ink:'#ffffff', acc:'#ffd166', draw(c,W,H,t,lv,u,spec,L){ mediaDraw(c,W,H,t,lv, L.aiImg, L.fx.blur && L.aiBlur ? L.aiBlur : null); } },
+  film: { name:'My footage edit', sw:'linear-gradient(135deg,#212529,#f08c00)', ink:'#ffffff', acc:'#ffd166', draw(c,W,H,t,lv,u,spec,L){ if(window.FILM && FILM.F.cuts.length) FILM.draw(c, W, H, t, lv); else { c.fillStyle = '#111'; c.fillRect(0,0,W,H); } } },
   video: { name:'My video clip', sw:'#495057', ink:'#ffffff', acc:'#ffd166', draw(c,W,H,t,lv,u,spec,L){ mediaDraw(c,W,H,t,lv, L.videoEl && L.videoEl.readyState >= 2 ? L.videoEl : null, null, true); } }
 };
 function mediaDraw(c, W, H, t, lv, img, blurImg, isVideo){

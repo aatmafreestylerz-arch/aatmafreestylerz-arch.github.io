@@ -15,17 +15,23 @@ function avcCodecs(W, H, fps){
   L.forEach(([hex, , rate, fs]) => { if(W * H <= fs && W * H * fps <= rate) out.push('avc1.6400' + hex, 'avc1.4d00' + hex, 'avc1.4200' + hex); });
   return out;
 }
-async function pickVideo(W, H, fps, br){
-  for(const codec of avcCodecs(W, H, fps)) for(const hw of ['prefer-hardware', 'no-preference']){
-    const cfg = { codec, width: W, height: H, bitrate: br, framerate: fps, hardwareAcceleration: hw, avc: { format: 'avc' } };
-    try{ const r = await VideoEncoder.isConfigSupported(cfg); if(r.supported) return { cfg: Object.assign({}, cfg, r.config || {}), mux: 'avc' }; }catch(e){}
+/* Every encoder setting this device accepts, best first. Hardware first, then software, then VP9. */
+const withTimeout = (p, ms, v) => Promise.race([p, new Promise(r => setTimeout(() => r(v), ms))]);
+async function videoOptions(W, H, fps, br, max){
+  const out = [], seen = new Set();
+  const tryCfg = async (cfg, mux) => {
+    if(out.length >= (max || 4)) return;
+    try{ const r = await withTimeout(VideoEncoder.isConfigSupported(cfg), 2500, { supported: false });
+      if(r && r.supported){ const k = cfg.codec + cfg.hardwareAcceleration; if(!seen.has(k)){ seen.add(k); out.push({ cfg: Object.assign({}, cfg, r.config || {}), mux }); } } }catch(e){}
+  };
+  const avc = avcCodecs(W, H, fps).filter((c, i, a) => a.indexOf(c) === i);
+  for(const hw of ['prefer-hardware', 'prefer-software']){
+    for(const codec of avc){ const n = out.length; await tryCfg({ codec, width: W, height: H, bitrate: br, framerate: fps, hardwareAcceleration: hw, avc: { format: 'avc' } }, 'avc'); if(out.length > n) break; }
   }
-  for(const codec of ['vp09.00.51.08', 'vp09.00.41.08', 'vp09.00.31.08']){
-    const cfg = { codec, width: W, height: H, bitrate: br, framerate: fps };
-    try{ const r = await VideoEncoder.isConfigSupported(cfg); if(r.supported) return { cfg: Object.assign({}, cfg, r.config || {}), mux: 'vp9' }; }catch(e){}
-  }
-  return null;
+  for(const codec of ['vp09.00.51.08', 'vp09.00.41.08', 'vp09.00.31.08']){ const n = out.length; await tryCfg({ codec, width: W, height: H, bitrate: br, framerate: fps, hardwareAcceleration: 'no-preference' }, 'vp9'); if(out.length > n) break; }
+  return out;
 }
+async function pickVideo(W, H, fps, br){ const o = await videoOptions(W, H, fps, br, 1); return o[0] || null; }
 async function pickAudio(sr, ch){
   for(const [codec, mux] of [['mp4a.40.2', 'aac'], ['opus', 'opus']]){
     const cfg = { codec, sampleRate: sr, numberOfChannels: ch, bitrate: 192000 };
@@ -33,13 +39,16 @@ async function pickAudio(sr, ch){
   }
   return null;
 }
-/* What this device can do, for the quality menu. */
-async function capabilities(w, h){
+/* What this device can do, for the quality menu. Remembered, so the menu opens instantly next time. */
+async function capabilities(w, h, onPart){
   const out = {};
   if(!supported()) return out;
-  for(const q of Object.keys(SHORT)) for(const fps of [30, 60]){
-    const [W, H] = dims(w, h, q); out[q + '@' + fps] = !!(await pickVideo(W, H, fps, bitrate(q, fps)));
+  const key = 'ls.caps.' + w + 'x' + h; try{ const c = JSON.parse(localStorage.getItem(key) || 'null'); if(c) return c; }catch(e){}
+  for(const k of ['1080@30', '720@30', '1080@60', '720@60', '1440@30', '2160@30', '1440@60', '2160@60']){
+    const [q, f] = k.split('@'), [W, H] = dims(w, h, q); out[k] = !!(await pickVideo(W, H, +f, bitrate(q, +f)));
+    onPart && onPart(Object.assign({}, out));
   }
+  try{ localStorage.setItem(key, JSON.stringify(out)); }catch(e){}
   return out;
 }
 
@@ -62,8 +71,17 @@ function spectrumAt(mono, sr, t){
 /* Render. o = { file, W, H, fps, q, draw(ctx, W, H, t, lv, spec), prepare(t) -> Promise, preview(canvas), onProgress(done, total, eta), signal } */
 async function render(o){
   const { W, H, fps } = o, br = bitrate(o.q, fps);
-  const vpick = await pickVideo(W, H, fps, br);
-  if(!vpick) throw new Error('This device can\'t make ' + o.q + 'p at ' + fps + ' fps. Pick a lower quality.');
+  const opts = await videoOptions(W, H, fps, br, 4);
+  if(!opts.length) throw new Error('This device can\'t make ' + o.q + 'p at ' + fps + ' fps. Pick a lower quality.');
+  let last = null;
+  for(let k = 0; k < opts.length; k++){
+    try{ return await renderWith(o, opts[k]); }
+    catch(e){ if(e && e.name === 'AbortError') throw e; last = e; o.onRetry && o.onRetry(k + 1, opts.length, e); }
+  }
+  throw last;
+}
+async function renderWith(o, vpick){
+  const { W, H, fps } = o;
   const octx = new OfflineAudioContext(2, 48000, 48000);
   const audio = await octx.decodeAudioData(await o.file.arrayBuffer());
   const sr = audio.sampleRate, ch = Math.min(2, audio.numberOfChannels), dur = audio.duration;
@@ -78,6 +96,7 @@ async function render(o){
   let encErr = null;
   const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { encErr = e; } });
   venc.configure(vpick.cfg);
+  if(venc.state !== 'configured') throw new Error('The video encoder would not start');
   let aenc = null;
   if(apick){ aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => { encErr = e; } }); aenc.configure(apick.cfg); }
 
@@ -102,7 +121,7 @@ async function render(o){
       o.draw(ctx, W, H, t, a.level, a.spec);
       const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       venc.encode(vf, { keyFrame: i % (fps * 2) === 0 }); vf.close();
-      while(venc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 2));
+      let waited = 0; while(venc.encodeQueueSize > 4){ if(encErr) throw encErr; if(waited++ > 5000) throw new Error('The video encoder stopped responding'); await new Promise(r => setTimeout(r, 2)); }
       if(i % 6 === 0){
         const el = (performance.now() - t0) / 1000, eta = i ? el / i * (total - i) : 0;
         o.onProgress && o.onProgress(i, total, eta);
@@ -112,6 +131,8 @@ async function render(o){
     }
     pushAudioUntil(dur + 1);
     await venc.flush(); if(aenc) await aenc.flush();
+    if(encErr) throw encErr;
+    if(!parts.length && !odd.length) throw new Error('The encoder produced no video');
     muxer.finalize();
   }finally{
     try{ venc.close(); }catch(e){} try{ aenc && aenc.close(); }catch(e){}

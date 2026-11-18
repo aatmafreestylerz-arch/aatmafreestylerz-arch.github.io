@@ -30,8 +30,8 @@ button{cursor:pointer}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-.01em}
 .brand span{color:var(--accent)}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.steps button{border:0;background:var(--surface);color:var(--muted);padding:10px 6px;border-radius:10px;font-weight:600;font-size:14px;border-bottom:3px solid transparent}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.steps button{border:0;background:var(--surface);color:var(--muted);padding:10px 2px;border-radius:10px;font-weight:600;font-size:13px;white-space:nowrap;border-bottom:3px solid transparent}
 .steps button[aria-current="step"]{color:var(--ink);border-bottom-color:var(--accent)}
 .steps button:disabled{opacity:.45;cursor:default}
 section{display:none;flex-direction:column;gap:14px}
@@ -117,6 +117,7 @@ details.box:not([open]){gap:0}
     <button id="tab2" data-go="2" disabled>2 Lyrics</button>
     <button id="tab3" data-go="3" disabled>3 Video</button>
     <button id="tab4" data-go="4">4 Animate</button>
+    <button id="tab5" data-go="5">5 Film</button>
   </nav>
 
   <!-- STEP 1 -->
@@ -397,7 +398,7 @@ details.box:not([open]){gap:0}
       <button class="btn" id="useClips" disabled>Use my clips in the music video</button>
     </div>
 
-    <details class="box" id="paidBox">
+    <details class="box hide" id="paidBox">
       <summary><b>Paid extras</b> <span class="sub">(need a ₹3,000 Google top-up)</span></summary>
       <p class="sub" style="font-size:13px">Only if you add credit to your Gemini paid key: make characters inside this app, and moving AI clips of your character.</p>
       <label class="drop" for="charPhoto" style="padding:14px"><b id="charPhotoTitle" style="font-size:14px">Choose a clear photo of your face</b><input id="charPhoto" type="file" accept="image/*"></label>
@@ -423,12 +424,45 @@ details.box:not([open]){gap:0}
       <div id="clipHistory" class="grp"></div>
     </details>
   </section>
+
+  <!-- STEP 5: music video from your own footage -->
+  <section id="s5">
+    <h1>Music video from your footage</h1>
+    <p class="sub">Add the clips you filmed. The editor cuts them on the beat of your song, adds camera moves and transitions, and puts your lyrics on top. Then preview and export in step 3.</p>
+    <p class="status" id="fNeedSong" role="status"></p>
+
+    <div class="box">
+      <p><b>1. Plan your shoot</b></p>
+      <p class="sub" style="font-size:14px">A shot list for this song, section by section, with the angles to film.</p>
+      <button class="btn alt" id="fShotBtn">Make my shot list</button>
+      <div id="fShots" class="hide" style="display:flex;flex-direction:column;gap:10px;font-size:14px"></div>
+      <button class="btn alt sm hide" id="fShotCopy">Copy shot list</button>
+    </div>
+
+    <div class="box">
+      <p><b>2. Add your footage</b></p>
+      <label class="drop" for="fFiles" style="padding:14px"><b style="font-size:14px">Choose your video clips</b><span class="sub" style="font-size:12px">Pick several at once. Clips where you sing along to the song are lined up with it automatically.</span><input id="fFiles" type="file" accept="video/*" multiple></label>
+      <div id="fList" style="display:flex;flex-direction:column;gap:8px"></div>
+      <p class="status" id="fAddStatus" role="status"></p>
+    </div>
+
+    <div class="box">
+      <p><b>3. Edit</b></p>
+      <div class="grp"><p class="sub">Style</p><div class="chips" id="fStyle"></div></div>
+      <label for="fSlow" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="fSlow" style="width:20px;height:20px">Slow motion on the clips where you are not singing</label>
+      <div class="rowb"><button class="btn" id="fMake" disabled>Make the edit</button><button class="btn alt" id="fShuffle" disabled>Another version</button></div>
+      <p class="status" id="fStatus" role="status"></p>
+      <div id="fCuts" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto"></div>
+      <button class="btn" id="fPreview" disabled>Preview and export in step 3</button>
+    </div>
+  </section>
 </div>
 
-<script src="look.js?v=13"></script>
-<script src="animate.js?v=14"></script>
+<script src="look.js?v=14"></script>
+<script src="animate.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
-<script src="export.js?v=13"></script>
+<script src="film.js?v=1"></script>
+<script src="export.js?v=14"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -438,17 +472,19 @@ const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
 const fmt = t => { t = Math.max(0, t); const m = Math.floor(t/60), s = t - m*60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
 
 /* ---------- step navigation ---------- */
-const HASH = ['', 'song', 'lyrics', 'video', 'animate'];
+const HASH = ['', 'song', 'lyrics', 'video', 'animate', 'film'];
 function go(n, fromHistory){
-  if(n > 1 && n < 4 && !S.lines.length) n = 1;
+  if(n > 1 && n < 4 && !S.lines.length && !(n === 3 && S.file && S.look.bg === 'film')) n = 1;
   S.step = n; saveState();
   if(!fromHistory && location.hash.slice(1) !== HASH[n]) location.hash = HASH[n];
-  [1,2,3,4].forEach(i => { $('s'+i).classList.toggle('on', i === n); i === n ? $('tab'+i).setAttribute('aria-current','step') : $('tab'+i).removeAttribute('aria-current'); });
+  [1,2,3,4,5].forEach(i => { $('s'+i).classList.toggle('on', i === n); i === n ? $('tab'+i).setAttribute('aria-current','step') : $('tab'+i).removeAttribute('aria-current'); });
   if(n !== 2) stopTap();
   if(n === 3){ renderChips(); redraw(); setTime(); setTransport(); }
   if(n !== 3 && playing && !rec){ audio.pause(); stopLoop(); }
   if(n !== 3){ try{ charVid.pause(); S.clips.forEach(c => c.el.pause()); }catch(e){} }
   if(n === 4) A.enter();
+  if(n === 5) FE.enter();
+  if(n !== 3){ try{ FILM.pauseAll(); }catch(e){} }
   if(n !== 4){ try{ $('clipVideo').pause(); }catch(e){} }
   window.scrollTo(0,0);
 }
@@ -909,11 +945,15 @@ function audioGraph(){
   src.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
 }
 function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
-function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
+function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); if(S.look.bg === 'film') FILM.sync(audio.currentTime, true); drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
 /* While paused on the video step, keep the character moving so you can see the movement you picked. */
 let idleRaf = 0, idleLast = 0;
 function idle(ts){
   idleRaf = 0;
+  if(S.look.bg === 'film' && FILM.F.cuts.length && !playing && !rec && S.step === 3 && !document.hidden){
+    const tt = Math.max(audio.currentTime || 0, firstLineTime(), .5); FILM.sync(tt, false);
+    if(ts - idleLast > 33){ idleLast = ts; S.look._ct = ts / 1000; drawFrame(tt, .3, null); }
+    idleRaf = requestAnimationFrame(idle); return; }
   if(S.step !== 3 || playing || rec || document.hidden || !S.look.charOn || !(S.look.charImg || S.look.charVid || S.clips.length)){ if(!playing) try{ charVid.pause(); }catch(e){} return; }
   if(S.look.charSrc === 'video' && S.look.charVid && charVid.paused) charVid.play().catch(() => {});
   if(S.look.charSrc === 'clips'){ if(!S.look.charVid) syncClips(audio.currentTime || 0, false); if(S.look.charVid && S.look.charVid.paused){ S.look.charVid.loop = true; S.look.charVid.play().catch(() => {}); } }
@@ -923,7 +963,7 @@ function idle(ts){
 function startIdle(){ if(!idleRaf) idleRaf = requestAnimationFrame(idle); }
 document.addEventListener('visibilitychange', startIdle);
 function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); if(S.look.charVid) charVid.play().catch(() => {}); loop(); setTransport(); }
-function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
+function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ FILM.pauseAll(); }catch(e){} try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
@@ -961,6 +1001,7 @@ $('seek').addEventListener('input', () => {
   if(S.look.videoEl && bgVid.duration) bgVid.currentTime = t % bgVid.duration;
   if(S.look.charSrc === 'video' && charVid.duration) charVid.currentTime = t % charVid.duration;
   if(S.look.charSrc === 'clips'){ S.clips.forEach(c => c.el.pause()); S.look.charVid = null; syncClips(t, false); }
+  if(S.look.bg === 'film') FILM.sync(t, false);
   $('tlabel').textContent = mmss(t) + ' / ' + mmss(d); if(!playing) drawFrame(t);
 });
 $('seek').addEventListener('change', () => { seeking = false; });
@@ -1010,21 +1051,21 @@ function exInfo(){
   document.querySelectorAll('#exF [data-f]').forEach(b => { const ok = !EX.caps || EX.caps[EX.q + '@' + b.dataset.f] !== false; b.disabled = !ok; b.setAttribute('aria-pressed', +b.dataset.f === EX.fps); });
   const [w, h] = exShape(), [W, H] = EXPORT.dims(w, h, EX.q), d = S.dur || audio.duration || 0;
   const mb = EXPORT.bitrate(EX.q, EX.fps) * d / 8 / 1048576;
-  const ok = !EX.caps || EX.caps[EX.q + '@' + EX.fps];
+  const ok = !EX.caps || EX.caps[EX.q + '@' + EX.fps] !== false;
   $('exInfo').textContent = !EXPORT.supported() ? 'This browser can\'t render videos frame by frame. Use Quick record below, or open the app in Chrome.'
-    : !EX.caps ? 'Checking what this device can make…'
     : !ok ? 'This device can\'t make ' + EX.q + 'p at ' + EX.fps + ' fps. Pick another option.'
     : W + ' × ' + H + ' at ' + EX.fps + ' fps, about ' + (mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB') + '. Rendering takes a few minutes' + (EX.q === '2160' || EX.fps === 60 ? ', longer for 4K and 60 fps' : '') + '. Keep this screen open.';
-  $('exGo').disabled = !EXPORT.supported() || !EX.caps || !ok;
+  $('exGo').disabled = !EXPORT.supported() || !ok;
 }
 async function openExport(){
   if(!S.file){ $('recText').textContent = 'Load your song in step 1 first.'; return; }
   if(playing){ audio.pause(); stopLoop(); }
   $('exSetup').classList.remove('hide'); $('exRun').classList.add('hide'); $('exportSheet').classList.remove('hide');
-  EX.caps = null; exInfo();
-  if(EXPORT.supported()){ const [w, h] = exShape(); EX.caps = await EXPORT.capabilities(w, h);
-    if(!EX.caps[EX.q + '@' + EX.fps]){ const best = ['1080@30','720@30','1080@60','720@60','1440@30','2160@30'].find(k => EX.caps[k]); if(best){ const [q, f] = best.split('@'); EX.q = q; EX.fps = +f; } } }
-  exInfo();
+  EX.caps = {}; exInfo();
+  if(EXPORT.supported()){ const [w, h] = exShape();
+    EXPORT.capabilities(w, h, part => { EX.caps = part; exInfo(); }).then(c => { EX.caps = c;
+      if(c[EX.q + '@' + EX.fps] === false){ const best = ['1080@30','720@30','1080@60','720@60','1440@30','2160@30'].find(k => c[k]); if(best){ const [q, f] = best.split('@'); EX.q = q; EX.fps = +f; } }
+      exInfo(); }).catch(() => {}); }
 }
 $('exQ').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if(!b || b.disabled) return; EX.q = b.dataset.q; exInfo(); });
 $('exF').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(!b || b.disabled) return; EX.fps = +b.dataset.f; exInfo(); });
@@ -1044,9 +1085,10 @@ $('exGo').addEventListener('click', async () => {
   const t0 = Date.now();
   try{
     const blob = await EXPORT.render({ file: S.file, W, H, fps: EX.fps, q: EX.q, signal: EX.ctl.signal,
-      prepare: async t => { if(useBg) await seekTo(bgVid, t); if(useChar) await seekTo(charVid, t); if(useClips){ const a = clipAt(t); if(a){ S.look.charVid = a.el; await seekTo(a.el, a.local); } } },
+      prepare: async t => { if(S.look.bg === 'film') await FILM.prepare(t); if(useBg) await seekTo(bgVid, t); if(useChar) await seekTo(charVid, t); if(useClips){ const a = clipAt(t); if(a){ S.look.charVid = a.el; await seekTo(a.el, a.local); } } },
       draw: (c, W2, H2, t, lv, spec) => { S.look._ct = null; LOOK.frame(c, W2, H2, t, lv, spec, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt }); },
       preview: src => { try{ ctx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){} },
+      onRetry: (k, n, err) => { $('exText').textContent = 'That way of encoding failed on this phone (' + (err && err.message || err) + '). Trying another way, ' + (k + 1) + ' of ' + n + '…'; },
       onProgress: (i, n, eta) => { $('exBar').style.width = (i / n * 100).toFixed(1) + '%'; $('exText').textContent = 'Rendering ' + W + '×' + H + ' at ' + EX.fps + ' fps: ' + Math.round(i / n * 100) + '%' + (i > 30 ? ', about ' + mmss(eta) + ' left' : '') + '. Keep this screen open.'; } });
     outBlob = blob; const url = URL.createObjectURL(blob);
     const name = ($('vTitle').value.trim() || 'lyric-video').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') + '-' + EX.q + 'p' + EX.fps + '.mp4';
@@ -1397,6 +1439,114 @@ const A = (() => {
 })();
 
 /* ---------- start ---------- */
+/* ---------- step 5: music video from your own footage ---------- */
+const FE = (() => {
+  const st = { items: [], style: 'mixed', slow: false, seed: 1, an: null, busy: false };
+  let songBuf = null, songOf = null;
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  async function decode(blob, rate){ const ac = new OfflineAudioContext(1, rate, rate); return await ac.decodeAudioData(await blob.arrayBuffer()); }
+  async function song(){ if(songBuf && songOf === S.file) return songBuf; songBuf = await decode(S.file, 22050); songOf = S.file; return songBuf; }
+  async function analysis(){
+    if(st.an && st.an.dur && Math.abs(st.an.dur - (S.dur || audio.duration || st.an.dur)) < 1) return st.an;
+    $('fStatus').textContent = 'Listening for the beat of your song…';
+    st.an = FILM.analyze(await song()); $('fStatus').textContent = 'Beat found: about ' + Math.round(st.an.bpm) + ' beats per minute.'; save(); return st.an;
+  }
+  function save(){ try{ store.set('film', { items: st.items.map(i => ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur })), style: st.style, slow: st.slow, seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
+  function makeEl(blob){ const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); return v; }
+  const meta = v => new Promise(r => { if(v.readyState >= 1) return r(); v.addEventListener('loadedmetadata', r, { once: true }); v.addEventListener('error', r, { once: true }); setTimeout(r, 15000); });
+  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; }
+  function chips(){ $('fStyle').innerHTML = Object.entries(FILM.STYLES).map(([k, v]) => `<button class="chip" data-fs="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join(''); $('fSlow').checked = st.slow; }
+  function list(){
+    $('fList').innerHTML = st.items.map((it, i) => `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
+      <div style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.name)}</b>
+      <span class="sub" style="font-size:12px">${mmss(it.dur || 0)} · ${it.checking ? 'Checking for singing…' : it.perf ? (it.off != null ? 'Singing take, starts at ' + mmss(it.off) + ' in the song' + (it.sure ? '' : ' (not sure, check it)') : 'Singing take, place not found') : 'B-roll (no singing to line up)'}</span>
+      ${it.perf ? `<label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Starts at (seconds in the song) <input type="number" step="0.1" data-off="${i}" value="${it.off != null ? it.off.toFixed(1) : ''}" style="width:90px;padding:4px 6px"></label>` : ''}</div>
+      <button class="btn alt sm" data-perf="${i}" style="flex:none">${it.perf ? 'Make B-roll' : 'Singing take'}</button>
+      <button class="btn alt sm" data-del="${i}" style="flex:none" aria-label="Remove">✕</button></div>`).join('');
+    $('fMake').disabled = !st.items.length || !S.file || st.busy;
+  }
+  function cutsUI(){
+    const c = FILM.F.cuts; $('fShuffle').disabled = !c.length; $('fPreview').disabled = !c.length;
+    const mv = FILM.MOVES, tr = FILM.TRANS;
+    $('fCuts').innerHTML = c.map((x, i) => `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;border-bottom:1px solid var(--line);padding:4px 0">
+      <b style="width:84px">${mmss(x.a)}–${mmss(x.b)}</b>
+      <select data-cc="${i}" style="flex:1;min-width:110px;padding:4px">${st.items.map((it, k) => `<option value="${k}" ${k === x.clip ? 'selected' : ''}>${esc(it.name)}</option>`).join('')}</select>
+      <select data-cm="${i}" style="padding:4px">${Object.entries(mv).map(([k, v]) => `<option value="${k}" ${k === x.move ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <select data-ct="${i}" style="padding:4px">${Object.entries(tr).map(([k, v]) => `<option value="${k}" ${k === x.trans ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`).join('');
+  }
+  async function lineUp(it){
+    if(!S.file || it.blob.size > 600 * 1048576){ it.perf = false; return; }
+    it.checking = true; list();
+    try{ const r = FILM.findOffset(await song(), await decode(it.blob, 22050));
+      if(r && r.sure){ it.perf = true; it.off = r.offset; it.sure = true; } else { it.perf = false; it.off = r ? r.offset : null; it.sure = false; } }
+    catch(e){ it.perf = false; }
+    it.checking = false;
+  }
+  async function add(files){
+    if(!S.file){ $('fAddStatus').textContent = 'Load your song in step 1 first, so clips can be lined up with it.'; }
+    for(const f of files){
+      const it = { blob: f, name: f.name || 'Clip', perf: false, off: null, sure: false, dur: 0 };
+      it.el = makeEl(f); await meta(it.el); it.dur = it.el.duration || 0;
+      if(!it.el.videoWidth){ $('fAddStatus').textContent = f.name + ' could not be played on this phone. Film in H.264 (not HEVC or D-Log) and try again.'; continue; }
+      st.items.push(it); list(); $('fAddStatus').textContent = 'Checking ' + it.name + ' for singing…';
+      await lineUp(it); list();
+    }
+    $('fAddStatus').textContent = st.items.length + ' clip' + (st.items.length === 1 ? '' : 's') + ' ready.'; sync(); save();
+  }
+  async function make(newSeed){
+    if(!S.file || !st.items.length) return;
+    st.busy = true; list();
+    try{
+      const an = await analysis(); if(newSeed) st.seed = Math.floor(Math.random() * 1e6);
+      const dur = S.dur || audio.duration || an.dur; sync();
+      FILM.F.cuts = FILM.build({ clips: st.items, an, dur, style: st.style, seed: st.seed, slow: st.slow, lines: S.lines });
+      cutsUI(); save();
+      $('fStatus').textContent = FILM.F.cuts.length + ' shots cut to the beat (' + Math.round(an.bpm) + ' BPM). Change any shot below, or tap Another version.';
+    }catch(e){ $('fStatus').textContent = 'Could not make the edit: ' + (e && e.message || e); }
+    st.busy = false; list();
+  }
+  async function shots(){
+    if(!S.file){ $('fShots').classList.remove('hide'); $('fShots').innerHTML = '<p class="sub">Load your song in step 1 first.</p>'; return; }
+    $('fShotBtn').disabled = true;
+    try{
+      const an = await analysis(), secs = FILM.shotList(an, S.lines, S.dur || an.dur), title = $('vTitle').value.trim() || 'my song';
+      const tips = FILM.TIPS;
+      $('fShots').innerHTML = secs.map(x => `<div><b>${esc(x.name)}</b> <span class="sub">${mmss(x.a)}–${mmss(x.b)}</span>${x.first ? `<br><span class="sub" style="font-size:12px">Starts with: “${esc(x.first)}”</span>` : ''}<ul style="margin:4px 0 0 18px;padding:0">${x.shots.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>`).join('')
+        + `<div><b>Before you shoot</b><ul style="margin:4px 0 0 18px;padding:0">${tips.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+      st.shotText = 'Shot list: ' + title + ' (' + Math.round(an.bpm) + ' BPM)\n\n' + secs.map(x => x.name + ' (' + mmss(x.a) + '–' + mmss(x.b) + ')' + (x.first ? ' – starts with "' + x.first + '"' : '') + '\n' + x.shots.map(s => '• ' + s).join('\n')).join('\n\n') + '\n\nBefore you shoot\n' + tips.map(s => '• ' + s).join('\n');
+      $('fShots').classList.remove('hide'); $('fShotCopy').classList.remove('hide');
+    }catch(e){ $('fShots').classList.remove('hide'); $('fShots').innerHTML = '<p class="sub">Could not read the song: ' + esc(e && e.message || e) + '</p>'; }
+    $('fShotBtn').disabled = false;
+  }
+  $('fFiles').addEventListener('change', e => { const fs = [...e.target.files]; e.target.value = ''; if(fs.length) add(fs); });
+  $('fList').addEventListener('click', async e => {
+    const d = e.target.closest('[data-del]'), p = e.target.closest('[data-perf]');
+    if(d){ const i = +d.dataset.del; st.items.splice(i, 1); FILM.F.cuts = FILM.F.cuts.filter(c => c.clip !== i).map(c => Object.assign(c, { clip: c.clip > i ? c.clip - 1 : c.clip })); sync(); list(); cutsUI(); save(); }
+    if(p){ const it = st.items[+p.dataset.perf]; it.perf = !it.perf; if(it.perf && it.off == null) await lineUp(it), it.perf = true; list(); save(); }
+  });
+  $('fList').addEventListener('change', e => { const o = e.target.closest('[data-off]'); if(!o) return; const v = parseFloat(o.value); const it = st.items[+o.dataset.off]; it.off = isNaN(v) ? null : v; it.sure = true; list(); save(); });
+  $('fStyle').addEventListener('click', e => { const b = e.target.closest('[data-fs]'); if(!b) return; st.style = b.dataset.fs; chips(); save(); if(FILM.F.cuts.length) make(false); });
+  $('fSlow').addEventListener('change', () => { st.slow = $('fSlow').checked; save(); if(FILM.F.cuts.length) make(false); });
+  $('fMake').addEventListener('click', () => make(!FILM.F.cuts.length ? false : true));
+  $('fShuffle').addEventListener('click', () => make(true));
+  $('fCuts').addEventListener('change', e => { const t = e.target, c = FILM.F.cuts;
+    if(t.dataset.cc != null){ const x = c[+t.dataset.cc], it = st.items[+t.value]; x.clip = +t.value; if(it.perf && it.off != null) x.src = x.a - it.off, x.speed = 1; else x.src = 0; }
+    if(t.dataset.cm != null) c[+t.dataset.cm].move = t.value;
+    if(t.dataset.ct != null) c[+t.dataset.ct].trans = t.value;
+    save(); });
+  $('fPreview').addEventListener('click', () => { S.look.bg = 'film'; changed(); go(3); });
+  $('fShotBtn').addEventListener('click', shots);
+  $('fShotCopy').addEventListener('click', async () => { try{ await navigator.clipboard.writeText(st.shotText || ''); $('fShotCopy').textContent = 'Copied'; setTimeout(() => $('fShotCopy').textContent = 'Copy shot list', 1500); }catch(e){} });
+  return {
+    enter(){ chips(); list(); cutsUI(); $('fNeedSong').textContent = S.file ? '' : 'Load your song in step 1 first.'; },
+    async restore(d){
+      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null;
+      for(const x of (d.items || [])){ if(!x || !x.blob) continue; const it = Object.assign({}, x); it.el = makeEl(x.blob); st.items.push(it); }
+      sync(); FILM.F.cuts = Array.isArray(d.cuts) ? d.cuts.filter(c => st.items[c.clip]) : [];
+    }
+  };
+})();
+
 async function restore(){
   const [song, st, bgimg, aibg, bgvid, favs, charlayer, charvid] = await Promise.all([store.get('song'), store.get('state'), store.get('bgimg'), store.get('aibg'), store.get('bgvid'), store.get('favs'), store.get('charlayer'), store.get('charvid')]);
   if(song && song.blob) setSong(song.blob, song.name || 'Your song');
@@ -1417,11 +1567,13 @@ async function restore(){
   if(bgimg) await setPhoto(bgimg); if(aibg) await setAiBg(aibg); if(bgvid) setBgVideo(bgvid, 'Video'); if(Array.isArray(favs)) S.favs = favs; if(charlayer) await setCharLayer(charlayer); const savedClips = await store.get('clips'); if(Array.isArray(savedClips)) for(const c of savedClips) if(c && c.blob) await addClip(c.blob, c.label, true);
   if(charvid && !(savedClips && savedClips.length)){ await addClip(charvid, 'Dancing video', true); saveClips(); }
   if(S.look.charSrc === 'video'){ S.look.charSrc = S.clips.length ? 'clips' : 'image'; } if(S.look.charSrc === 'clips' && !S.clips.length) S.look.charSrc = 'image';
+  try{ const fd = await store.get('film'); if(fd) await FE.restore(fd); }catch(e){}
+  if(S.look.bg === 'film' && !FILM.F.cuts.length) S.look.bg = 'sea';
   unlock(); if(S.lines.length) renderLines(); syncEngine();
   restoring = false;
   const want = HASH.indexOf(location.hash.slice(1)), step = want > 0 ? want : (st && st.step) || 1;
   history.replaceState(null, '', '#song');
-  if(step === 4 || (step > 1 && S.lines.length)) go(step); else go(1, true);
+  if(step === 4 || step === 5 || (step > 1 && S.lines.length)) go(step); else go(1, true);
 }
 fitCanvas(); LOOK.loadFonts().then(() => drawFrame(0.7));
 restore();
