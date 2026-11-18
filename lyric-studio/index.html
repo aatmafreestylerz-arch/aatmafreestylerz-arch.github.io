@@ -308,7 +308,7 @@ details.box:not([open]){gap:0}
             <button class="chip" data-f="30">30 fps</button><button class="chip" data-f="60">60 fps (smoother)</button></div></div>
           <p class="sub" id="exInfo" style="font-size:14px"></p>
           <button class="btn" id="exGo">Render video</button>
-          <button class="btn alt sm" id="exQuick">Quick record instead (plays the song once, works on any device)</button>
+          <button class="btn alt" id="exQuick">Fast export instead: real time, 1080p at the frame rate above (plays the song once, fastest on phones)</button>
           <button class="btn alt sm" id="exClose">Cancel</button>
         </div>
         <div id="exRun" class="grp hide" style="gap:10px">
@@ -428,7 +428,7 @@ details.box:not([open]){gap:0}
   <!-- STEP 5: music video from your own footage -->
   <section id="s5">
     <h1>Music video from your footage</h1>
-    <p class="sub">Add the clips you filmed. The editor cuts them on the beat of your song, adds camera moves and transitions, and puts your lyrics on top. Then preview and export in step 3.</p>
+    <p class="sub">Add the clips you filmed. The editor cuts them on the beat of your song and adds camera moves, speed ramps, effects, transitions and sound effects, with your lyrics on top. Then preview and export in step 3.</p>
     <p class="status" id="fNeedSong" role="status"></p>
 
     <div class="box">
@@ -444,12 +444,24 @@ details.box:not([open]){gap:0}
       <label class="drop" for="fFiles" style="padding:14px"><b style="font-size:14px">Choose your video clips</b><span class="sub" style="font-size:12px">Pick several at once. Clips where you sing along to the song are lined up with it automatically.</span><input id="fFiles" type="file" accept="video/*" multiple></label>
       <div id="fList" style="display:flex;flex-direction:column;gap:8px"></div>
       <p class="status" id="fAddStatus" role="status"></p>
+      <details id="fCloneBox" style="border:1px solid var(--line);border-radius:12px;padding:10px">
+        <summary style="cursor:pointer"><b>Clone shot: you in 2 or 3 places at once</b></summary>
+        <p class="sub" style="font-size:13px">Put the camera on a tripod and do not move it. Film one take standing on the left, one in the middle and one on the right. Tick the takes below from left to right, then slide the dividers to where the takes meet. For a vertical (9:16) video, film the takes vertically too.</p>
+        <div id="fCloneSel" style="display:flex;flex-direction:column;gap:6px;font-size:14px"></div>
+        <label for="fCs1">Divider 1 <input type="range" id="fCs1" min="5" max="95" value="33"></label>
+        <label for="fCs2">Divider 2 (for 3 takes) <input type="range" id="fCs2" min="5" max="95" value="66"></label>
+        <label for="fCf">Edge softness <input type="range" id="fCf" min="1" max="20" value="5"></label>
+        <canvas id="fClonePrev" width="480" height="270" style="width:100%;border-radius:10px;background:#000"></canvas>
+        <button class="btn alt" id="fCloneAdd" disabled>Add clone shot</button>
+      </details>
     </div>
 
     <div class="box">
       <p><b>3. Edit</b></p>
       <div class="grp"><p class="sub">Style</p><div class="chips" id="fStyle"></div></div>
       <label for="fSlow" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="fSlow" style="width:20px;height:20px">Slow motion on the clips where you are not singing</label>
+      <label for="fSfx" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="fSfx" style="width:20px;height:20px" checked>Sound effects (whooshes, impacts, risers, booms)</label>
+      <label for="fSfxVol">Sound effect volume <input type="range" id="fSfxVol" min="0" max="100" value="80"></label>
       <div class="rowb"><button class="btn" id="fMake" disabled>Make the edit</button><button class="btn alt" id="fShuffle" disabled>Another version</button></div>
       <p class="status" id="fStatus" role="status"></p>
       <div id="fCuts" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto"></div>
@@ -461,8 +473,8 @@ details.box:not([open]){gap:0}
 <script src="look.js?v=14"></script>
 <script src="animate.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
-<script src="film.js?v=1"></script>
-<script src="export.js?v=14"></script>
+<script src="film.js?v=2"></script>
+<script src="export.js?v=15"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -945,7 +957,9 @@ function audioGraph(){
   src.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
 }
 function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
-function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); if(S.look.bg === 'film') FILM.sync(audio.currentTime, true); drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
+let sfxT = -1;
+function liveSfx(t){ if(S.look.bg !== 'film' || !AC){ sfxT = t; return; } if(sfxT >= 0) FILM.sfxBetween(sfxT, t, FE.an()).forEach(e => { try{ const src = AC.createBufferSource(), g = AC.createGain(); src.buffer = FILM.sfxBuffer(e.kind, AC); g.gain.value = FILM.F.sfxVol * .5; src.connect(g); g.connect(AC.destination); if(dest) g.connect(dest); src.start(AC.currentTime + Math.max(0, e.t - t)); }catch(x){} }); sfxT = t; }
+function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); if(S.look.bg === 'film'){ FILM.sync(audio.currentTime, true); liveSfx(audio.currentTime); } drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
 /* While paused on the video step, keep the character moving so you can see the movement you picked. */
 let idleRaf = 0, idleLast = 0;
 function idle(ts){
@@ -963,7 +977,7 @@ function idle(ts){
 function startIdle(){ if(!idleRaf) idleRaf = requestAnimationFrame(idle); }
 document.addEventListener('visibilitychange', startIdle);
 function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); if(S.look.charVid) charVid.play().catch(() => {}); loop(); setTransport(); }
-function stopLoop(){ playing = false; cancelAnimationFrame(raf); try{ FILM.pauseAll(); }catch(e){} try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
+function stopLoop(){ playing = false; sfxT = -1; cancelAnimationFrame(raf); try{ FILM.pauseAll(); }catch(e){} try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
@@ -1019,9 +1033,9 @@ async function quickRecord(){
   if(!window.MediaRecorder || !cv.captureStream){ $('recText').textContent = 'This browser cannot record video. Open the app in Chrome on Android or Safari on iPhone.'; return; }
   try{
     audioGraph(); await AC.resume(); await LOOK.loadFonts(S.look.font);
-    const stream = cv.captureStream(30); dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    fitCanvas(); const fps = EX.fps || 30, stream = cv.captureStream(fps); dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
     const type = pickType(); chunks = [];
-    rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 5e6, audioBitsPerSecond: 192000 } : undefined);
+    rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: EXPORT.bitrate('1080', fps), audioBitsPerSecond: 192000 } : undefined);
     rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
     rec.onstop = () => {
       stopLoop(); clearInterval(recTimer); if(wake){ wake.release().catch(() => {}); wake = null; }
@@ -1072,7 +1086,7 @@ $('exF').addEventListener('click', e => { const b = e.target.closest('[data-f]')
 $('exClose').addEventListener('click', () => { $('exportSheet').classList.add('hide'); });
 $('exQuick').addEventListener('click', () => { $('exportSheet').classList.add('hide'); quickRecord(); });
 $('exCancel').addEventListener('click', () => { if(EX.ctl) EX.ctl.abort(); });
-function seekTo(v, t){ return new Promise(res => { if(!v || !v.duration){ res(); return; } const tt = t % v.duration; if(Math.abs(v.currentTime - tt) < 1e-3){ res(); return; }
+function seekTo(v, t, tol){ return new Promise(res => { if(!v || !v.duration){ res(); return; } const tt = t % v.duration; if(Math.abs(v.currentTime - tt) < (tol || 1e-3) && v.readyState >= 2){ res(); return; }
   const done = () => { clearTimeout(to); v.removeEventListener('seeked', done); res(); }; const to = setTimeout(done, 800); v.addEventListener('seeked', done); v.currentTime = tt; }); }
 $('exGo').addEventListener('click', async () => {
   try{ localStorage.setItem('ls.export', JSON.stringify({ q: EX.q, fps: EX.fps })); }catch(e){}
@@ -1085,7 +1099,8 @@ $('exGo').addEventListener('click', async () => {
   const t0 = Date.now();
   try{
     const blob = await EXPORT.render({ file: S.file, W, H, fps: EX.fps, q: EX.q, signal: EX.ctl.signal,
-      prepare: async t => { if(S.look.bg === 'film') await FILM.prepare(t); if(useBg) await seekTo(bgVid, t); if(useChar) await seekTo(charVid, t); if(useClips){ const a = clipAt(t); if(a){ S.look.charVid = a.el; await seekTo(a.el, a.local); } } },
+      prepare: async t => { const tol = .45 / EX.fps; if(S.look.bg === 'film') await FILM.prepare(t, EX.fps); if(useBg) await seekTo(bgVid, t, tol); if(useChar) await seekTo(charVid, t, tol); if(useClips){ const a = clipAt(t); if(a){ S.look.charVid = a.el; await seekTo(a.el, a.local, tol); } } },
+      mixAudio: S.look.bg === 'film' ? b => FILM.mixInto(b, FE.an()) : null,
       draw: (c, W2, H2, t, lv, spec) => { S.look._ct = null; LOOK.frame(c, W2, H2, t, lv, spec, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt }); },
       preview: src => { try{ ctx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){} },
       onRetry: (k, n, err) => { $('exText').textContent = 'That way of encoding failed on this phone (' + (err && err.message || err) + '). Trying another way, ' + (k + 1) + ' of ' + n + '…'; },
@@ -1441,7 +1456,7 @@ const A = (() => {
 /* ---------- start ---------- */
 /* ---------- step 5: music video from your own footage ---------- */
 const FE = (() => {
-  const st = { items: [], style: 'mixed', slow: false, seed: 1, an: null, busy: false };
+  const st = { items: [], style: 'mixed', slow: false, sfx: true, sfxVol: .8, seed: 1, an: null, busy: false, cloneSel: [] };
   let songBuf = null, songOf = null;
   const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   async function decode(blob, rate){ const ac = new OfflineAudioContext(1, rate, rate); return await ac.decodeAudioData(await blob.arrayBuffer()); }
@@ -1451,19 +1466,48 @@ const FE = (() => {
     $('fStatus').textContent = 'Listening for the beat of your song…';
     st.an = FILM.analyze(await song()); $('fStatus').textContent = 'Beat found: about ' + Math.round(st.an.bpm) + ' beats per minute.'; save(); return st.an;
   }
-  function save(){ try{ store.set('film', { items: st.items.map(i => ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur })), style: st.style, slow: st.slow, seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
+  function save(){ FILM.resetSfx(); try{ store.set('film', { items: st.items.map(i => i.type === 'clone' ? { type: 'clone', name: i.name, members: i.members, splits: i.splits, feather: i.feather, perf: i.perf, off: i.off, dur: i.dur } : ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur })), style: st.style, slow: st.slow, sfx: st.sfx, sfxVol: st.sfxVol, seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
   function makeEl(blob){ const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); return v; }
   const meta = v => new Promise(r => { if(v.readyState >= 1) return r(); v.addEventListener('loadedmetadata', r, { once: true }); v.addEventListener('error', r, { once: true }); setTimeout(r, 15000); });
-  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; }
-  function chips(){ $('fStyle').innerHTML = Object.entries(FILM.STYLES).map(([k, v]) => `<button class="chip" data-fs="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join(''); $('fSlow').checked = st.slow; }
+  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; FILM.F.sfxOn = st.sfx; FILM.F.sfxVol = st.sfxVol; FILM.resetSfx(); }
+  function chips(){ $('fStyle').innerHTML = Object.entries(FILM.STYLES).map(([k, v]) => `<button class="chip" data-fs="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join(''); $('fSlow').checked = st.slow; $('fSfx').checked = st.sfx; $('fSfxVol').value = Math.round(st.sfxVol * 100); }
   function list(){
-    $('fList').innerHTML = st.items.map((it, i) => `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
+    $('fList').innerHTML = st.items.map((it, i) => it.type === 'clone' ? `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
+      <div style="flex:1;min-width:0"><b style="font-size:14px">${esc(it.name)}</b><br><span class="sub" style="font-size:12px">${it.members.map(m => esc((st.items[m] || {}).name || '?')).join(' + ')}${it.perf ? ' · lined up with the song' : ''}</span></div>
+      <button class="btn alt sm" data-del="${i}" style="flex:none" aria-label="Remove">✕</button></div>` : `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
       <div style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.name)}</b>
       <span class="sub" style="font-size:12px">${mmss(it.dur || 0)} · ${it.checking ? 'Checking for singing…' : it.perf ? (it.off != null ? 'Singing take, starts at ' + mmss(it.off) + ' in the song' + (it.sure ? '' : ' (not sure, check it)') : 'Singing take, place not found') : 'B-roll (no singing to line up)'}</span>
       ${it.perf ? `<label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Starts at (seconds in the song) <input type="number" step="0.1" data-off="${i}" value="${it.off != null ? it.off.toFixed(1) : ''}" style="width:90px;padding:4px 6px"></label>` : ''}</div>
       <button class="btn alt sm" data-perf="${i}" style="flex:none">${it.perf ? 'Make B-roll' : 'Singing take'}</button>
       <button class="btn alt sm" data-del="${i}" style="flex:none" aria-label="Remove">✕</button></div>`).join('');
     $('fMake').disabled = !st.items.length || !S.file || st.busy;
+    cloneUI();
+  }
+  function cloneUI(){
+    const vids = st.items.map((it, i) => [it, i]).filter(([it]) => it.type !== 'clone');
+    st.cloneSel = st.cloneSel.filter(i => st.items[i] && st.items[i].type !== 'clone');
+    $('fCloneSel').innerHTML = vids.length ? vids.map(([it, i]) => `<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" data-cs="${i}" ${st.cloneSel.includes(i) ? 'checked' : ''} style="width:20px;height:20px">${st.cloneSel.includes(i) ? '<b>' + (st.cloneSel.indexOf(i) + 1) + '.</b> ' : ''}${esc(it.name)}</label>`).join('') : '<p class="sub" style="font-size:13px">Add your takes above first.</p>';
+    $('fCloneAdd').disabled = st.cloneSel.length < 2 || st.cloneSel.length > 3;
+    $('fCs2').disabled = st.cloneSel.length < 3;
+    clonePrev();
+  }
+  function cloneDef(){ const n = st.cloneSel.length, s1 = $('fCs1').value / 100, s2 = $('fCs2').value / 100;
+    const splits = n === 3 ? [Math.min(s1, s2), Math.max(s1, s2)] : [s1];
+    return { type: 'clone', members: st.cloneSel.slice(), splits, feather: $('fCf').value / 200 }; }
+  async function clonePrev(){
+    const c = $('fClonePrev'), x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+    if(st.cloneSel.length < 2) return;
+    await Promise.all(st.cloneSel.map(i => { const el = st.items[i].el; return el.readyState >= 2 ? 0 : new Promise(r => { el.addEventListener('loadeddata', r, { once: true }); if(el.currentTime === 0) el.currentTime = Math.min(1, (el.duration || 2) / 2); setTimeout(r, 3000); }); }));
+    const img = FILM.cloneStill(cloneDef()); if(!img) return; const s = Math.min(c.width / img.width, c.height / img.height), w = img.width * s, h = img.height * s;
+    x.drawImage(img, (c.width - w) / 2, (c.height - h) / 2, w, h);
+    const d = cloneDef(); x.strokeStyle = 'rgba(255,209,102,.8)'; x.setLineDash([6, 6]); d.splits.forEach(p => { const xx = (c.width - w) / 2 + p * w; x.beginPath(); x.moveTo(xx, 0); x.lineTo(xx, c.height); x.stroke(); }); x.setLineDash([]);
+  }
+  function addClone(){
+    const d = cloneDef(), m = d.members.map(i => st.items[i]);
+    d.perf = m.every(it => it.perf && it.off != null);
+    if(d.perf){ d.off = Math.max(...m.map(it => it.off)); d.dur = Math.min(...m.map(it => it.off + it.dur)) - d.off; } else { d.off = null; d.dur = Math.min(...m.map(it => it.dur)); }
+    d.name = 'Clone shot (' + m.length + ' takes)'; st.items.push(d); st.cloneSel = []; sync(); list(); save();
+    $('fAddStatus').textContent = 'Clone shot added. Make the edit again to use it.';
   }
   function cutsUI(){
     const c = FILM.F.cuts; $('fShuffle').disabled = !c.length; $('fPreview').disabled = !c.length;
@@ -1472,7 +1516,10 @@ const FE = (() => {
       <b style="width:84px">${mmss(x.a)}–${mmss(x.b)}</b>
       <select data-cc="${i}" style="flex:1;min-width:110px;padding:4px">${st.items.map((it, k) => `<option value="${k}" ${k === x.clip ? 'selected' : ''}>${esc(it.name)}</option>`).join('')}</select>
       <select data-cm="${i}" style="padding:4px">${Object.entries(mv).map(([k, v]) => `<option value="${k}" ${k === x.move ? 'selected' : ''}>${v}</option>`).join('')}</select>
-      <select data-ct="${i}" style="padding:4px">${Object.entries(tr).map(([k, v]) => `<option value="${k}" ${k === x.trans ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`).join('');
+      <select data-ct="${i}" style="padding:4px">${Object.entries(tr).map(([k, v]) => `<option value="${k}" ${k === x.trans ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <select data-cv="${i}" style="padding:4px">${Object.entries(FILM.CURVES).map(([k, v]) => `<option value="${k}" ${k === (x.curve || 'normal') ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <select data-cf="${i}" style="padding:4px">${Object.entries(FILM.FX).map(([k, v]) => `<option value="${k}" ${k === (x.fx || 'none') ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <select data-cs2="${i}" style="padding:4px">${Object.entries(FILM.SFX).map(([k, v]) => `<option value="${k}" ${k === (x.sfx || 'auto') ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`).join('');
   }
   async function lineUp(it){
     if(!S.file || it.blob.size > 600 * 1048576){ it.perf = false; return; }
@@ -1521,27 +1568,42 @@ const FE = (() => {
   $('fFiles').addEventListener('change', e => { const fs = [...e.target.files]; e.target.value = ''; if(fs.length) add(fs); });
   $('fList').addEventListener('click', async e => {
     const d = e.target.closest('[data-del]'), p = e.target.closest('[data-perf]');
-    if(d){ const i = +d.dataset.del; st.items.splice(i, 1); FILM.F.cuts = FILM.F.cuts.filter(c => c.clip !== i).map(c => Object.assign(c, { clip: c.clip > i ? c.clip - 1 : c.clip })); sync(); list(); cutsUI(); save(); }
+    if(d){ const i = +d.dataset.del, gone = new Set([i]);
+      st.items.forEach((it, k) => { if(it.type === 'clone' && it.members.includes(i)) gone.add(k); });
+      const map = []; let n = 0; st.items.forEach((it, k) => { map[k] = gone.has(k) ? -1 : n++; });
+      st.items = st.items.filter((it, k) => !gone.has(k)); st.items.forEach(it => { if(it.type === 'clone') it.members = it.members.map(m => map[m]); });
+      FILM.F.cuts = FILM.F.cuts.filter(c => map[c.clip] >= 0).map(c => Object.assign(c, { clip: map[c.clip] }));
+      st.cloneSel = []; sync(); list(); cutsUI(); save(); }
     if(p){ const it = st.items[+p.dataset.perf]; it.perf = !it.perf; if(it.perf && it.off == null) await lineUp(it), it.perf = true; list(); save(); }
   });
   $('fList').addEventListener('change', e => { const o = e.target.closest('[data-off]'); if(!o) return; const v = parseFloat(o.value); const it = st.items[+o.dataset.off]; it.off = isNaN(v) ? null : v; it.sure = true; list(); save(); });
   $('fStyle').addEventListener('click', e => { const b = e.target.closest('[data-fs]'); if(!b) return; st.style = b.dataset.fs; chips(); save(); if(FILM.F.cuts.length) make(false); });
   $('fSlow').addEventListener('change', () => { st.slow = $('fSlow').checked; save(); if(FILM.F.cuts.length) make(false); });
+  $('fSfx').addEventListener('change', () => { st.sfx = $('fSfx').checked; sync(); save(); });
+  $('fSfxVol').addEventListener('input', () => { st.sfxVol = $('fSfxVol').value / 100; sync(); save(); });
+  $('fCloneSel').addEventListener('change', e => { const b = e.target.closest('[data-cs]'); if(!b) return; const i = +b.dataset.cs;
+    if(b.checked){ if(st.cloneSel.length < 3) st.cloneSel.push(i); } else st.cloneSel = st.cloneSel.filter(x => x !== i); cloneUI(); });
+  ['fCs1', 'fCs2', 'fCf'].forEach(id => $(id).addEventListener('input', clonePrev));
+  $('fCloneAdd').addEventListener('click', addClone);
   $('fMake').addEventListener('click', () => make(!FILM.F.cuts.length ? false : true));
   $('fShuffle').addEventListener('click', () => make(true));
   $('fCuts').addEventListener('change', e => { const t = e.target, c = FILM.F.cuts;
-    if(t.dataset.cc != null){ const x = c[+t.dataset.cc], it = st.items[+t.value]; x.clip = +t.value; if(it.perf && it.off != null) x.src = x.a - it.off, x.speed = 1; else x.src = 0; }
+    if(t.dataset.cc != null){ const x = c[+t.dataset.cc], it = st.items[+t.value]; x.clip = +t.value; if(it.perf && it.off != null){ x.src = x.a - it.off; x.speed = 1; x.curve = 'normal'; } else x.src = 0; }
     if(t.dataset.cm != null) c[+t.dataset.cm].move = t.value;
     if(t.dataset.ct != null) c[+t.dataset.ct].trans = t.value;
+    if(t.dataset.cv != null) c[+t.dataset.cv].curve = t.value;
+    if(t.dataset.cf != null) c[+t.dataset.cf].fx = t.value;
+    if(t.dataset.cs2 != null) c[+t.dataset.cs2].sfx = t.value;
     save(); });
   $('fPreview').addEventListener('click', () => { S.look.bg = 'film'; changed(); go(3); });
   $('fShotBtn').addEventListener('click', shots);
   $('fShotCopy').addEventListener('click', async () => { try{ await navigator.clipboard.writeText(st.shotText || ''); $('fShotCopy').textContent = 'Copied'; setTimeout(() => $('fShotCopy').textContent = 'Copy shot list', 1500); }catch(e){} });
   return {
+    an: () => st.an,
     enter(){ chips(); list(); cutsUI(); $('fNeedSong').textContent = S.file ? '' : 'Load your song in step 1 first.'; },
     async restore(d){
-      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null;
-      for(const x of (d.items || [])){ if(!x || !x.blob) continue; const it = Object.assign({}, x); it.el = makeEl(x.blob); st.items.push(it); }
+      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null; st.sfx = d.sfx !== false; st.sfxVol = d.sfxVol != null ? d.sfxVol : .8;
+      for(const x of (d.items || [])){ if(!x) continue; if(x.type === 'clone'){ st.items.push(Object.assign({}, x)); continue; } if(!x.blob) continue; const it = Object.assign({}, x); it.el = makeEl(x.blob); st.items.push(it); }
       sync(); FILM.F.cuts = Array.isArray(d.cuts) ? d.cuts.filter(c => st.items[c.clip]) : [];
     }
   };

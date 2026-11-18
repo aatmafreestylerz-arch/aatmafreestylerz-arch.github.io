@@ -83,7 +83,8 @@ async function render(o){
 async function renderWith(o, vpick){
   const { W, H, fps } = o;
   const octx = new OfflineAudioContext(2, 48000, 48000);
-  const audio = await octx.decodeAudioData(await o.file.arrayBuffer());
+  let audio = await octx.decodeAudioData(await o.file.arrayBuffer());
+  if(o.mixAudio){ try{ audio = o.mixAudio(audio) || audio; }catch(e){} }
   const sr = audio.sampleRate, ch = Math.min(2, audio.numberOfChannels), dur = audio.duration;
   const apick = await pickAudio(sr, ch);
   const mono = new Float32Array(audio.length); for(let c = 0; c < audio.numberOfChannels; c++){ const d = audio.getChannelData(c); for(let i = 0; i < d.length; i++) mono[i] += d[i] / audio.numberOfChannels; }
@@ -121,7 +122,7 @@ async function renderWith(o, vpick){
       o.draw(ctx, W, H, t, a.level, a.spec);
       const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       venc.encode(vf, { keyFrame: i % (fps * 2) === 0 }); vf.close();
-      let waited = 0; while(venc.encodeQueueSize > 4){ if(encErr) throw encErr; if(waited++ > 5000) throw new Error('The video encoder stopped responding'); await new Promise(r => setTimeout(r, 2)); }
+      let waited = 0; while(venc.encodeQueueSize > 10){ if(encErr) throw encErr; if(waited++ > 5000) throw new Error('The video encoder stopped responding'); await new Promise(r => setTimeout(r, 2)); }
       if(i % 6 === 0){
         const el = (performance.now() - t0) / 1000, eta = i ? el / i * (total - i) : 0;
         o.onProgress && o.onProgress(i, total, eta);
