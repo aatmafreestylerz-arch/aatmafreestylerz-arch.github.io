@@ -3,16 +3,19 @@
    and adds camera moves (push-in, pans, tilts, dutch roll, beat punch) and transitions.
    The edit is drawn as a background layer, so lyrics, colour grades and effects go on top. */
 (function(){
-const MOVES = { push:'Slow push-in', pull:'Pull back', panL:'Pan left', panR:'Pan right', tiltU:'Tilt up', tiltD:'Tilt down', dutch:'Dutch roll', punch:'Beat punch', shake:'Beat shake', drift:'Handheld', still:'Locked off' };
-const TRANS = { cut:'Cut', flash:'Flash', whip:'Whip pan', zoom:'Zoom blur', spin:'Spin', glitch:'Glitch', dip:'Dip to black' };
+const MOVES = { push:'Slow push-in', pull:'Pull back', crash:'Crash zoom', snap:'Snap zoom on beat', vertigo:'Vertigo zoom', panL:'Pan left', panR:'Pan right', tiltU:'Tilt up', tiltD:'Tilt down', crane:'Crane up', arc:'Orbit arc', dutch:'Dutch roll', focus:'Rack focus', float:'Floating', punch:'Beat punch', shake:'Beat shake', drift:'Handheld', reveal:'Letterbox reveal', still:'Locked off' };
+const TRANS = { cut:'Cut', dissolve:'Cross dissolve', blurx:'Blur dissolve', flash:'Flash', whip:'Whip pan', push:'Push', slide:'Slide up', zoom:'Zoom blur', zoomout:'Zoom out', spin:'Spin', glitch:'Glitch', burn:'Film burn', leak:'Light leak', dip:'Dip to black' };
+const TWO = { dissolve:.45, blurx:.45, push:.3, slide:.3, burn:.5, leak:.5, zoomout:.3 };
 const CURVES = { normal:'Normal speed', slow:'Slow motion (½×)', super:'Super slow (¼×, film at 120 fps)', rampIn:'Ramp: fast to slow', rampOut:'Ramp: slow to fast', velocity:'Velocity (fast, slow on every beat)', freeze:'Freeze frame', reverse:'Reverse' };
-const FX = { none:'No effect', echo:'Motion trail', rgb:'RGB split', strobe:'Strobe', mirror:'Mirror', bw:'Black and white', glow:'Dreamy glow' };
+const FX = { none:'No effect', grain:'Film grain', leaks:'Light leaks', flare:'Lens flare', halation:'Halation', glow:'Dreamy glow', prism:'Prism', chroma:'Chromatic fringe', vhs:'VHS tape', echo:'Motion trail', rgb:'RGB split', strobe:'Strobe', mirror:'Mirror', bw:'Black and white' };
+const LOOKS = { none:'As filmed', teal:'Teal and orange', warm:'Warm film', cold:'Cold steel', sunset:'Golden hour', neon:'Neon night', bleach:'Bleach bypass', noir:'Noir', matrix:'Matrix green', pastel:'Soft pastel', vivid:'Vivid' };
+const LOOKF = { none:['',null], teal:['contrast(1.12) saturate(1.15)',['soft-light','#0e7c86',.32,'overlay','#ff9a3c',.12]], warm:['sepia(.25) saturate(1.1) contrast(1.05)',['soft-light','#ff8a3d',.22]], cold:['saturate(.8) contrast(1.12) hue-rotate(-8deg)',['soft-light','#3d7bff',.24]], sunset:['sepia(.35) saturate(1.3)',['soft-light','#ff6a00',.25]], neon:['saturate(1.5) contrast(1.15)',['soft-light','#c400ff',.22]], bleach:['saturate(.45) contrast(1.35)',null], noir:['grayscale(1) contrast(1.35) brightness(.95)',null], matrix:['saturate(.7) contrast(1.15)',['soft-light','#29ff6a',.3]], pastel:['saturate(.8) brightness(1.08) contrast(.9)',['soft-light','#ffc8e6',.25]], vivid:['saturate(1.45) contrast(1.1)',null] };
 const SFX = { auto:'Sound: automatic', none:'Sound: none', whoosh:'Whoosh', impact:'Impact', hit:'Bass hit', boom:'Deep boom', riser:'Riser', glitch:'Glitch zap', shutter:'Camera shutter', rewind:'Rewind' };
 const STYLES = {
-  cinematic: { name:'Smooth cinematic', calm:[8, 4], busy:[4, 4, 2], moves:['push','pull','panL','panR','tiltU','dutch','drift','push'], trans:['cut','cut','dip','whip','zoom'], curves:['normal','normal','slow','rampIn'], fx:['none','none','none','glow'] },
-  mixed:     { name:'Calm verses, fast chorus', calm:[4, 8], busy:[2, 1, 2], moves:['push','pull','panL','panR','dutch','punch','drift','tiltD','shake'], trans:['cut','cut','flash','whip','zoom','glitch'], curves:['normal','normal','rampIn','slow','rampOut'], fx:['none','none','none','rgb','echo'] },
-  energetic: { name:'Fast and energetic', calm:[2, 4], busy:[1, 2, 1], moves:['punch','push','panL','panR','dutch','drift','punch','shake'], trans:['cut','flash','whip','zoom','spin','glitch'], curves:['normal','rampIn','rampOut','normal'], fx:['none','rgb','strobe','none','echo'] },
-  velocity:  { name:'Velocity edit (speed ramps)', calm:[4, 2], busy:[2, 2, 1], moves:['punch','push','shake','dutch','punch'], trans:['flash','zoom','whip','glitch','cut'], curves:['velocity','velocity','rampIn','rampOut','velocity'], fx:['none','rgb','echo','none'] }
+  cinematic: { name:'Smooth cinematic', calm:[8, 4], busy:[4, 4, 2], moves:['push','pull','panL','panR','tiltU','crane','arc','focus','float','dutch','drift'], trans:['cut','dissolve','cut','dip','whip','blurx','leak'], curves:['normal','normal','slow','rampIn'], fx:['none','none','none','glow'] },
+  mixed:     { name:'Calm verses, fast chorus', calm:[4, 8], busy:[2, 1, 2], moves:['push','pull','panL','panR','dutch','punch','drift','tiltD','shake','arc','snap','crane'], trans:['cut','cut','flash','whip','zoom','glitch','dissolve','push','burn'], curves:['normal','normal','rampIn','slow','rampOut'], fx:['none','none','none','rgb','echo'] },
+  energetic: { name:'Fast and energetic', calm:[2, 4], busy:[1, 2, 1], moves:['punch','crash','snap','push','panL','panR','dutch','drift','shake','vertigo'], trans:['cut','flash','whip','zoom','spin','glitch','push','slide','zoomout'], curves:['normal','rampIn','rampOut','normal'], fx:['none','rgb','strobe','none','echo'] },
+  velocity:  { name:'Velocity edit (speed ramps)', calm:[4, 2], busy:[2, 2, 1], moves:['punch','crash','snap','shake','dutch','vertigo'], trans:['flash','zoom','whip','glitch','cut','zoomout'], curves:['velocity','velocity','rampIn','rampOut','velocity'], fx:['none','rgb','echo','none'] }
 };
 const rnd = s => { const x = Math.sin(s * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
 const ease = p => p * p * (3 - 2 * p);
@@ -91,7 +94,7 @@ function build(o){   // o = { clips:[{dur, perf, off, sure}], an, dur, style, se
     const fx = synced ? 'none' : st.fx[Math.floor(rnd(o.seed + c * 8.3) * st.fx.length)];
     let move = st.moves[Math.floor(rnd(o.seed + c * 2.9) * st.moves.length)]; if(move === prevMove) move = st.moves[(st.moves.indexOf(move) + 1) % st.moves.length];
     const trans = c === 0 ? 'dip' : st.trans[Math.floor(rnd(o.seed + c * 4.1) * st.trans.length)];
-    cuts.push({ a: +a.toFixed(3), b: +b.toFixed(3), clip: pick, src: +src.toFixed(3), speed, curve, fx, move, trans, sfx: 'auto' });
+    cuts.push({ a: +a.toFixed(3), b: +b.toFixed(3), clip: pick, src: +src.toFixed(3), speed, curve, fx, move, trans, sfx: 'auto', look: 'inherit' });
     prevClip = pick; prevMove = move;
   }
   return cuts;
@@ -137,23 +140,27 @@ function sources(cut, t){
     const base = it.perf && it.off != null && cl.perf ? cut.a - it.off : cut.src + (it.lag || 0); return one(it, base); }).filter(Boolean);
   return [one(cl, cut.src)];
 }
+function inTwo(i, t){ const c = F.cuts[i]; return i > 0 && TWO[c.trans] && t - c.a < TWO[c.trans]; }
 function sync(t, live){
-  const i = cutAt(t); if(i < 0) return; const cut = F.cuts[i], list = sources(cut, t), els = list.map(s => s.el);
-  F.active.forEach(el => { if(!els.includes(el)) try{ el.pause(); }catch(e){} });
-  const v = speedAt(cut, t - cut.a, Math.max(.01, cut.b - cut.a)), smooth = live && v > 0 && cut.curve !== 'reverse';
-  list.forEach(({ el, x }) => {
-    const fresh = !F.active.includes(el);
-    if(smooth){ try{ el.playbackRate = Math.min(4, Math.max(.0625, v)); }catch(e){}
-      if(fresh || Math.abs(el.currentTime - x) > .3) try{ el.currentTime = x; }catch(e){}
-      if(el.paused) el.play().catch(() => {}); }
-    else { if(!el.paused) el.pause(); if(Math.abs(el.currentTime - x) > (live ? .05 : .03)) try{ el.currentTime = x; }catch(e){} }
+  const i = cutAt(t); if(i < 0) return; const groups = [[F.cuts[i], sources(F.cuts[i], t)]];
+  if(inTwo(i, t)) groups.unshift([F.cuts[i - 1], sources(F.cuts[i - 1], t)]);
+  const all = []; groups.forEach(g => g[1].forEach(s => { if(!all.includes(s.el)) all.push(s.el); }));
+  F.active.forEach(el => { if(!all.includes(el)) try{ el.pause(); }catch(e){} });
+  groups.forEach(([cut, list]) => {
+    const v = speedAt(cut, t - cut.a, Math.max(.01, cut.b - cut.a)), smooth = live && v > 0 && cut.curve !== 'reverse';
+    list.forEach(({ el, x }) => { const fresh = !F.active.includes(el);
+      if(smooth){ try{ el.playbackRate = Math.min(4, Math.max(.0625, v)); }catch(e){}
+        if(fresh || Math.abs(el.currentTime - x) > .3) try{ el.currentTime = x; }catch(e){}
+        if(el.paused) el.play().catch(() => {}); }
+      else { if(!el.paused) el.pause(); if(Math.abs(el.currentTime - x) > (live ? .05 : .03)) try{ el.currentTime = x; }catch(e){} } });
   });
-  F.active = els;
+  F.active = all;
 }
 function pauseAll(){ F.clips.forEach(c => { try{ c.el && c.el.pause(); }catch(e){} }); F.active = []; }
 function seek(v, t, tol){ return new Promise(res => { if(!v || !v.duration){ res(); return; } if(Math.abs(v.currentTime - t) < (tol || 1e-3) && v.readyState >= 2){ res(); return; }
   const done = () => { clearTimeout(to); v.removeEventListener('seeked', done); res(); }; const to = setTimeout(done, 1500); v.addEventListener('seeked', done); v.currentTime = t; }); }
-async function prepare(t, fps){ const i = cutAt(t); if(i < 0) return; const list = sources(F.cuts[i], t);
+async function prepare(t, fps){ const i = cutAt(t); if(i < 0) return; let list = sources(F.cuts[i], t);
+  if(inTwo(i, t)) list = list.concat(sources(F.cuts[i - 1], t).filter(s => !list.some(x => x.el === s.el)));
   F.active.forEach(el => { if(!list.some(s => s.el === el)) try{ el.pause(); }catch(e){} }); F.active = list.map(s => s.el);
   await Promise.all(list.map(({ el, x }) => { try{ el.pause(); }catch(e){} return seek(el, x, fps ? .45 / fps : 0); })); }
 function beatKick(t){ let k = 0; for(const b of F.beats){ if(b > t) break; const d = t - b; if(d < .3) k = Math.max(k, Math.exp(-d * 12)); } return k; }
@@ -177,58 +184,118 @@ function cloneFrame(cl, list){
   return out;
 }
 
-function draw(c, W, H, t, lv){
+/* Film grain texture, made once. */
+let grainTex = null;
+function grain(){ if(grainTex) return grainTex; const g = cnv('grain', 256, 256), x = g.getContext('2d'), d = x.createImageData(256, 256); let sd = 7;
+  for(let i = 0; i < d.data.length; i += 4){ sd = (sd * 16807) % 2147483647; const v = sd % 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } x.putImageData(d, 0, 0); return grainTex = g; }
+function tintFill(c, W, H, list){ if(!list) return; for(let k = 0; k < list.length; k += 3){ c.save(); c.globalCompositeOperation = list[k]; c.globalAlpha = list[k + 2]; c.fillStyle = list[k + 1]; c.fillRect(0, 0, W, H); c.restore(); } }
+function gradeFilter(){ const g = F.grade || {}; let f = '';
+  if(g.exposure) f += 'brightness(' + (1 + g.exposure).toFixed(3) + ') ';
+  if(g.contrast) f += 'contrast(' + (1 + g.contrast).toFixed(3) + ') ';
+  if(g.saturation) f += 'saturate(' + Math.max(0, 1 + g.saturation).toFixed(3) + ') ';
+  return f; }
+function gradeOverlay(c, W, H){ const g = F.grade || {};
+  if(g.warmth){ c.save(); c.globalCompositeOperation = 'soft-light'; c.globalAlpha = Math.min(.6, Math.abs(g.warmth) * .6); c.fillStyle = g.warmth > 0 ? '#ff8c2a' : '#2a7dff'; c.fillRect(0, 0, W, H); c.restore(); }
+  if(g.tint){ c.save(); c.globalCompositeOperation = 'soft-light'; c.globalAlpha = Math.min(.5, Math.abs(g.tint) * .5); c.fillStyle = g.tint > 0 ? '#ff3dd6' : '#36ff6a'; c.fillRect(0, 0, W, H); c.restore(); }
+  if(g.fade){ c.save(); c.globalCompositeOperation = 'lighten'; c.globalAlpha = g.fade * .5; c.fillStyle = '#2b2b30'; c.fillRect(0, 0, W, H); c.restore(); }
+  if(g.vignette){ const r = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .3, W / 2, H / 2, Math.max(W, H) * .72); r.addColorStop(0, 'rgba(0,0,0,0)'); r.addColorStop(1, 'rgba(0,0,0,' + (g.vignette * .85).toFixed(3) + ')'); c.fillStyle = r; c.fillRect(0, 0, W, H); }
+  if(g.grain){ c.save(); c.globalCompositeOperation = 'overlay'; c.globalAlpha = g.grain * .35; const tex = grain(), pat = c.createPattern(tex, 'repeat'), o = Math.floor(performance.now() / 41) % 8; c.translate(-o * 31, -o * 17); c.fillStyle = pat; c.fillRect(0, 0, W + 256, H + 256); c.restore(); }
+}
+
+/* Draws one shot (camera move, speed, effect, colour) at time t. */
+function shot(c, W, H, i, t, extra){
   c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
-  const i = cutAt(t); if(i < 0) return; const cut = F.cuts[i], cl = F.clips[cut.clip]; if(!cl) return;
+  const cut = F.cuts[i], cl = cut && F.clips[cut.clip]; if(!cl) return;
   const list = sources(cut, t); if(!list.length) return;
   let img = list[0].el;
   if(cl.type === 'clone'){ img = cloneFrame(cl, list); if(!img) return; }
   else if(!img.videoWidth || img.readyState < 2) return;
   const iw = img.videoWidth || img.width, ih = img.videoHeight || img.height;
   const len = Math.max(.01, cut.b - cut.a), p = Math.min(1, Math.max(0, (t - cut.a) / len)), e = ease(p), since = t - cut.a, kick = beatKick(t);
-  let z = 1.12, x = 0, y = 0, rot = 0;
+  let z = 1.12, x = 0, y = 0, rot = 0, blur = (extra && extra.blur) || 0;
   switch(cut.move){
     case 'push': z = 1.06 + .22 * e; break;
     case 'pull': z = 1.3 - .22 * e; break;
+    case 'crash': z = 1.04 + .5 * ease(Math.min(1, since / .35)); blur += since < .3 ? Math.round(8 * Math.sin(Math.PI * since / .3)) : 0; break;
+    case 'snap': { let lb = cut.a; for(const b of F.beats){ if(b > t) break; if(b >= cut.a) lb = b; } const n = F.beats.filter(b => b >= cut.a && b <= t).length; z = 1.06 + .14 * Math.min(4, n) * (1 - Math.exp(-(t - lb) * 25)) + .14 * Math.max(0, Math.min(4, n) - 1) * Math.exp(-(t - lb) * 25); break; }
+    case 'vertigo': z = 1.05 + .45 * e; y = -.15 * e; rot = .01 * Math.sin(t * 2); break;
     case 'panL': z = 1.3; x = .5 - e; break;
     case 'panR': z = 1.3; x = e - .5; break;
     case 'tiltU': z = 1.3; y = .5 - e; break;
     case 'tiltD': z = 1.3; y = e - .5; break;
+    case 'crane': z = 1.32 - .16 * e; y = .55 - 1.1 * e; break;
+    case 'arc': z = 1.3; x = Math.sin((e - .5) * 2.2) * .9; rot = (e - .5) * 5 * Math.PI / 180; break;
     case 'dutch': z = 1.28 + .05 * e; rot = (-3 + 6 * e) * Math.PI / 180; break;
+    case 'focus': z = 1.1 + .05 * e; blur += Math.round(14 * Math.max(0, 1 - since / Math.min(1.2, len * .5))); break;
+    case 'float': z = 1.16 + .03 * Math.sin(t * .6); x = .3 * Math.sin(t * .35 + i); y = .25 * Math.sin(t * .5 + i * 2); break;
     case 'punch': z = 1.14 + .22 * Math.exp(-since * 7) + .05 * kick; break;
     case 'shake': z = 1.2 + .04 * kick; x = kick * .35 * Math.sin(t * 91); y = kick * .3 * Math.cos(t * 77); rot = kick * .02 * Math.sin(t * 63); break;
     case 'drift': z = 1.18; x = .25 * Math.sin(t * .9 + i) + .06 * Math.sin(t * 3.1); y = .2 * Math.cos(t * .7 + i) + .05 * Math.sin(t * 2.3); rot = .006 * Math.sin(t * 1.3); break;
+    case 'reveal': z = 1.08 + .06 * e; break;
     default: z = 1.06;
   }
-  let blur = 0, ox, oy;
-  if(cut.trans === 'zoom' && since < .28){ const q = since / .28; z *= 1 + .6 * Math.pow(1 - q, 2); blur = Math.round(18 * (1 - q)); }
-  if(cut.trans === 'spin' && since < .3){ const q = since / .3; rot += (1 - ease(q)) * Math.PI / 2; z *= 1 + .3 * (1 - q); blur = Math.round(14 * (1 - q)); }
+  const own = !extra || !extra.noIn;
+  if(own && cut.trans === 'zoom' && since < .28){ const q = since / .28; z *= 1 + .6 * Math.pow(1 - q, 2); blur += Math.round(18 * (1 - q)); }
+  if(own && cut.trans === 'spin' && since < .3){ const q = since / .3; rot += (1 - ease(q)) * Math.PI / 2; z *= 1 + .3 * (1 - q); blur += Math.round(14 * (1 - q)); }
+  if(extra && extra.z) z *= extra.z;
   const s = Math.max(W / iw, H / ih) * z, dw = iw * s, dh = ih * s, sx = Math.max(0, (dw - W) / 2), sy = Math.max(0, (dh - H) / 2);
-  ox = x * sx * 1.6; oy = y * sy * 1.6;
-  if(cut.trans === 'whip' && since < .24){ const q = since / .24; ox += W * .55 * Math.pow(1 - q, 3); blur = Math.round(26 * (1 - q)); }
-  if(cut.trans !== 'whip') { ox = Math.max(-sx, Math.min(sx, ox)); oy = Math.max(-sy, Math.min(sy, oy)); }
-  const fx = cut.fx || 'none';
-  const paint = (cc, extraX) => { cc.save(); let f = ''; if(blur) f += 'blur(' + blur + 'px) '; if(fx === 'bw') f += 'grayscale(1) contrast(1.15) ';
-    if(f && 'filter' in cc) cc.filter = f.trim(); cc.translate(W / 2 + ox + (extraX || 0), H / 2 + oy); if(rot) cc.rotate(rot); cc.drawImage(img, -dw / 2, -dh / 2, dw, dh); cc.restore(); };
-  if(fx === 'rgb' || (cut.trans === 'glitch' && since < .22)){
-    const amt = fx === 'rgb' ? 6 + 22 * kick : 30 * (1 - since / .22), base = cnv('fxbase', W, H), bc = base.getContext('2d');
-    bc.globalCompositeOperation = 'source-over'; bc.fillStyle = '#000'; bc.fillRect(0, 0, W, H); paint(bc);
+  const fxk = cl.frameX != null ? cl.frameX : .5, fyk = cl.frameY != null ? cl.frameY : .5;
+  let ox = x * sx * 1.6 + (.5 - fxk) * 2 * sx, oy = y * sy * 1.6 + (.5 - fyk) * 2 * sy;
+  if(own && cut.trans === 'whip' && since < .24){ const q = since / .24; ox += W * .55 * Math.pow(1 - q, 3); blur += Math.round(26 * (1 - q)); }
+  if(!(own && cut.trans === 'whip' && since < .24)){ ox = Math.max(-sx, Math.min(sx, ox)); oy = Math.max(-sy, Math.min(sy, oy)); }
+  const fx = cut.fx || 'none', lk = LOOKF[cut.look && cut.look !== 'inherit' ? cut.look : (F.look || 'none')] || LOOKF.none;
+  const paint = (cc, dx, dy, extraF, alpha) => { cc.save(); let f = gradeFilter() + lk[0] + ' '; if(blur) f += 'blur(' + blur + 'px) '; if(fx === 'bw') f += 'grayscale(1) contrast(1.15) '; if(extraF) f += extraF;
+    f = f.trim(); if(f && 'filter' in cc) cc.filter = f; if(alpha != null) cc.globalAlpha = alpha;
+    cc.translate(W / 2 + ox + (dx || 0), H / 2 + oy + (dy || 0)); if(rot) cc.rotate(rot); cc.drawImage(img, -dw / 2, -dh / 2, dw, dh); cc.restore(); };
+  const split = fx === 'rgb' || fx === 'chroma' || fx === 'vhs' || (own && cut.trans === 'glitch' && since < .22);
+  if(split){
+    const amt = fx === 'rgb' ? 6 + 22 * kick : fx === 'chroma' ? 4 : fx === 'vhs' ? 5 + 3 * Math.sin(t * 7) : 30 * (1 - since / .22), base = cnv('fxbase', W, H), bc = base.getContext('2d');
+    bc.globalCompositeOperation = 'source-over'; bc.fillStyle = '#000'; bc.fillRect(0, 0, W, H); paint(bc, 0, 0, fx === 'vhs' ? 'saturate(1.35) contrast(1.1)' : '');
     const ch = (name, col) => { const l = cnv(name, W, H), lc = l.getContext('2d'); lc.globalCompositeOperation = 'source-over'; lc.drawImage(base, 0, 0); lc.globalCompositeOperation = 'multiply'; lc.fillStyle = col; lc.fillRect(0, 0, W, H); lc.globalCompositeOperation = 'source-over'; return l; };
     const r = ch('fxr', '#f00'), g = ch('fxg', '#0f0'), b = ch('fxb', '#00f');
     c.save(); c.globalCompositeOperation = 'lighter'; c.drawImage(r, amt, 0); c.drawImage(g, 0, 0); c.drawImage(b, -amt, 0); c.restore();
-    if(cut.trans === 'glitch' && since < .22){ const n = 7; for(let k = 0; k < n; k++){ const yy = Math.floor(rnd(k + Math.floor(since * 40)) * H), hh = 8 + rnd(k * 3.3) * H * .06, dx = (rnd(k * 7.1 + since) - .5) * W * .12; c.drawImage(base, 0, yy, W, hh, dx, yy, W, hh); } }
+    if(own && cut.trans === 'glitch' && since < .22){ for(let k = 0; k < 7; k++){ const yy = Math.floor(rnd(k + Math.floor(since * 40)) * H), hh = 8 + rnd(k * 3.3) * H * .06, dx = (rnd(k * 7.1 + since) - .5) * W * .12; c.drawImage(base, 0, yy, W, hh, dx, yy, W, hh); } }
+    if(fx === 'vhs'){ c.save(); c.globalAlpha = .18; c.fillStyle = '#000'; for(let yy = 0; yy < H; yy += 4) c.fillRect(0, yy, W, 2); c.restore();
+      const band = ((t * .23) % 1) * H; c.save(); c.globalAlpha = .25; c.drawImage(base, 0, band, W, H * .04, 12, band, W, H * .04); c.restore(); }
   } else if(fx === 'echo'){
     const tr = cnv('trail', W, H), tc = tr.getContext('2d'); if(F._trailCut !== i){ tc.fillStyle = '#000'; tc.fillRect(0, 0, W, H); F._trailCut = i; }
     tc.globalAlpha = .38; paint(tc); tc.globalAlpha = 1; c.drawImage(tr, 0, 0);
   } else paint(c);
+  tintFill(c, W, H, lk[1]);
   if(fx === 'mirror'){ c.save(); c.translate(W, 0); c.scale(-1, 1); c.drawImage(c.canvas, 0, 0, W / 2, H, 0, 0, W / 2, H); c.restore(); }
-  if(fx === 'glow'){ const gl = cnv('glow', W >> 2, H >> 2), gc = gl.getContext('2d'); gc.drawImage(c.canvas, 0, 0, gl.width, gl.height); c.save(); if('filter' in c) c.filter = 'blur(6px)'; c.globalCompositeOperation = 'screen'; c.globalAlpha = .55; c.drawImage(gl, 0, 0, W, H); c.restore(); }
+  if(fx === 'prism'){ paint(c, W * .025, 0, 'hue-rotate(90deg)', .28); paint(c, -W * .025, 0, 'hue-rotate(-90deg)', .22); }
+  if(fx === 'glow' || fx === 'halation'){ const gl = cnv('glow', W >> 2, H >> 2), gc = gl.getContext('2d'); gc.drawImage(c.canvas, 0, 0, gl.width, gl.height); c.save(); if('filter' in c) c.filter = 'blur(6px)' + (fx === 'halation' ? ' sepia(1) saturate(4) hue-rotate(-25deg)' : ''); c.globalCompositeOperation = 'screen'; c.globalAlpha = fx === 'halation' ? .45 : .55; c.drawImage(gl, 0, 0, W, H); c.restore(); }
+  if(fx === 'leaks'){ c.save(); c.globalCompositeOperation = 'screen'; for(let k = 0; k < 2; k++){ const cx = W * (.5 + .55 * Math.sin(t * .4 + k * 2.4)), cy = H * (.3 + .4 * Math.cos(t * .3 + k)), r = Math.max(W, H) * .55, g = c.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, k ? 'rgba(255,80,40,.55)' : 'rgba(255,190,60,.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H); } c.restore(); }
+  if(fx === 'flare'){ const fx0 = W * (.2 + .6 * e), fy0 = H * .22; c.save(); c.globalCompositeOperation = 'screen'; let g = c.createRadialGradient(fx0, fy0, 0, fx0, fy0, W * .35); g.addColorStop(0, 'rgba(255,240,200,.85)'); g.addColorStop(.2, 'rgba(255,170,80,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+    g = c.createLinearGradient(0, fy0 - 3, 0, fy0 + 3); c.globalAlpha = .55; c.fillStyle = 'rgba(120,180,255,.8)'; c.fillRect(0, fy0 - 2, W, 4);
+    [.4, .7, 1.1].forEach((k, j) => { const gx = fx0 + (W / 2 - fx0) * k * 2, gy = fy0 + (H / 2 - fy0) * k * 2, rr = W * (.03 + .02 * j); const gg = c.createRadialGradient(gx, gy, 0, gx, gy, rr); gg.addColorStop(0, 'rgba(160,255,200,.35)'); gg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gg; c.fillRect(gx - rr, gy - rr, rr * 2, rr * 2); }); c.restore(); }
+  if(fx === 'grain'){ c.save(); c.globalCompositeOperation = 'overlay'; c.globalAlpha = .45; const pat = c.createPattern(grain(), 'repeat'), o = Math.floor(t * 24) % 8; c.translate(-o * 31, -o * 17); c.fillStyle = pat; c.fillRect(0, 0, W + 256, H + 256); c.restore(); }
   if(fx === 'strobe' && kick > .55){ c.fillStyle = 'rgba(255,255,255,' + ((kick - .55) * 1.2).toFixed(3) + ')'; c.fillRect(0, 0, W, H); }
+  if(cut.move === 'reveal'){ const bar = H * .5 * (1 - ease(Math.min(1, since / Math.min(1.5, len * .6)))) + H * .1 * ease(Math.min(1, since / Math.min(1.5, len * .6))); c.fillStyle = '#000'; c.fillRect(0, 0, W, bar * (W > H ? 1 : .35)); c.fillRect(0, H - bar * (W > H ? 1 : .35), W, bar * (W > H ? 1 : .35)); }
   if(cut.curve === 'freeze' && p >= .55 && p < .62){ c.fillStyle = 'rgba(255,255,255,' + (.7 * (1 - (p - .55) / .07)).toFixed(3) + ')'; c.fillRect(0, 0, W, H); }
+}
+
+function draw(c, W, H, t, lv){
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  const i = cutAt(t); if(i < 0) return; const cut = F.cuts[i]; if(!F.clips[cut.clip]) return;
+  const since = t - cut.a, d = TWO[cut.trans];
+  if(i > 0 && d && since < d){
+    const q = ease(Math.min(1, since / d)), A = cnv('shotA', W, H), B = cnv('shotB', W, H);
+    shot(A.getContext('2d'), W, H, i - 1, t, { noIn: true, blur: cut.trans === 'blurx' ? Math.round(20 * q) : 0, z: cut.trans === 'zoomout' ? 1 + .4 * q : 1 });
+    shot(B.getContext('2d'), W, H, i, t, { blur: cut.trans === 'blurx' ? Math.round(20 * (1 - q)) : 0, z: cut.trans === 'zoomout' ? 1.4 - .4 * q : 1 });
+    if(cut.trans === 'push'){ c.drawImage(A, -W * q, 0); c.drawImage(B, W * (1 - q), 0); }
+    else if(cut.trans === 'slide'){ c.drawImage(A, 0, 0); c.drawImage(B, 0, H * (1 - q)); }
+    else { c.drawImage(A, 0, 0); c.save(); c.globalAlpha = q; c.drawImage(B, 0, 0); c.restore(); }
+    if(cut.trans === 'burn' || cut.trans === 'leak'){ const k = Math.sin(Math.PI * Math.min(1, since / d)); c.save(); c.globalCompositeOperation = cut.trans === 'burn' ? 'lighter' : 'screen';
+      const cx = W * (cut.trans === 'burn' ? .8 : .2), cy = H * .3, g = c.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * (.4 + .8 * k));
+      g.addColorStop(0, cut.trans === 'burn' ? 'rgba(255,255,230,' + (.95 * k) + ')' : 'rgba(255,200,80,' + (.8 * k) + ')'); g.addColorStop(.35, cut.trans === 'burn' ? 'rgba(255,120,20,' + (.8 * k) + ')' : 'rgba(255,60,120,' + (.5 * k) + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.fillRect(0, 0, W, H); c.restore(); }
+  } else shot(c, W, H, i, t);
+  gradeOverlay(c, W, H);
   const next = F.cuts[i + 1]; if(next && next.trans === 'dip' && next.a - t < .25){ c.fillStyle = 'rgba(0,0,0,' + (1 - (next.a - t) / .25).toFixed(3) + ')'; c.fillRect(0, 0, W, H); }
   if(cut.trans === 'dip' && since < .35){ c.fillStyle = 'rgba(0,0,0,' + (1 - since / .35).toFixed(3) + ')'; c.fillRect(0, 0, W, H); }
   if(cut.trans === 'flash' && since < .16){ c.fillStyle = 'rgba(255,255,255,' + (.85 * (1 - since / .16)).toFixed(3) + ')'; c.fillRect(0, 0, W, H); }
-  c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(0, 0, W, H);
+  c.fillStyle = 'rgba(0,0,0,.1)'; c.fillRect(0, 0, W, H);
 }
 
 /* ---------- sound effects (made here, no downloads) ---------- */
@@ -251,7 +318,7 @@ function synth(kind, sr){
   return o;
 }
 function sfxData(kind, sr){ const k = kind + sr; return sfxCache[k] || (sfxCache[k] = synth(kind, sr)); }
-function autoSfx(cut, prev){ if(cut.trans === 'whip' || cut.trans === 'zoom' || cut.trans === 'spin') return 'whoosh'; if(cut.trans === 'flash') return 'impact'; if(cut.trans === 'glitch') return 'glitch';
+function autoSfx(cut, prev){ if(['whip','zoom','spin','push','slide','zoomout'].includes(cut.trans)) return 'whoosh'; if(cut.move === 'crash') return 'impact'; if(cut.trans === 'burn') return 'riser'; if(cut.trans === 'flash') return 'impact'; if(cut.trans === 'glitch') return 'glitch';
   if(cut.curve === 'reverse') return 'rewind'; if(cut.curve === 'freeze') return 'shutter'; if(cut.move === 'punch') return 'hit'; return null; }
 const LEAD = { whoosh:.25, riser:2.3, rewind:.1 };
 function sfxEvents(an){
@@ -308,5 +375,5 @@ const TIPS = [
 ];
 
 function cloneStill(cl){ const list = cl.members.map(m => F.clips[m]).filter(it => it && it.el).map(it => ({ el: it.el })); return cloneFrame(cl, list); }
-window.FILM = { cloneStill, MOVES, TRANS, CURVES, FX, SFX, STYLES, TIPS, analyze, findOffset, build, shotList, F, cutAt, sync, pauseAll, prepare, draw, mixInto, sfxBetween, sfxBuffer, sfxData, resetSfx };
+window.FILM = { cloneStill, LOOKS, MOVES, TRANS, CURVES, FX, SFX, STYLES, TIPS, analyze, findOffset, build, shotList, F, cutAt, sync, pauseAll, prepare, draw, mixInto, sfxBetween, sfxBuffer, sfxData, resetSfx };
 })();

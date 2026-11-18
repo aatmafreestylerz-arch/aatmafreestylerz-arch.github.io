@@ -464,7 +464,21 @@ details.box:not([open]){gap:0}
       <label for="fSfxVol">Sound effect volume <input type="range" id="fSfxVol" min="0" max="100" value="80"></label>
       <div class="rowb"><button class="btn" id="fMake" disabled>Make the edit</button><button class="btn alt" id="fShuffle" disabled>Another version</button></div>
       <p class="status" id="fStatus" role="status"></p>
-      <div id="fCuts" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto"></div>
+    </div>
+
+    <div class="box hide" id="fEditBox">
+      <p><b>4. Fine-tune each shot</b></p>
+      <canvas id="fPrev" width="360" height="640" style="width:min(100%,300px);align-self:center;border-radius:12px;background:#000"></canvas>
+      <div class="rowb"><button class="btn alt sm" id="fPlayShot">▶ Play this shot</button><button class="btn alt sm" id="fPrevShot">◀ Previous</button><button class="btn alt sm" id="fNextShot">Next ▶</button></div>
+      <div class="grp"><p class="sub">Shots (tap one to edit it)</p><div class="chips" id="fCuts" style="flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px"></div></div>
+      <div id="fShot" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+
+    <div class="box hide" id="fGradeBox">
+      <p><b>5. Colour grade (whole video)</b></p>
+      <div class="grp"><p class="sub">Look</p><div class="chips" id="fLook"></div></div>
+      <div id="fGrade" style="display:flex;flex-direction:column;gap:6px"></div>
+      <button class="btn alt sm" id="fGradeReset">Reset colour</button>
       <button class="btn" id="fPreview" disabled>Preview and export in step 3</button>
     </div>
   </section>
@@ -473,7 +487,7 @@ details.box:not([open]){gap:0}
 <script src="look.js?v=14"></script>
 <script src="animate.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
-<script src="film.js?v=2"></script>
+<script src="film.js?v=3"></script>
 <script src="export.js?v=15"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
@@ -1456,7 +1470,7 @@ const A = (() => {
 /* ---------- start ---------- */
 /* ---------- step 5: music video from your own footage ---------- */
 const FE = (() => {
-  const st = { items: [], style: 'mixed', slow: false, sfx: true, sfxVol: .8, seed: 1, an: null, busy: false, cloneSel: [] };
+  const st = { items: [], style: 'mixed', slow: false, sfx: true, sfxVol: .8, seed: 1, an: null, busy: false, cloneSel: [], sel: 0, look: 'none', grade: {}, playing: false };
   let songBuf = null, songOf = null;
   const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   async function decode(blob, rate){ const ac = new OfflineAudioContext(1, rate, rate); return await ac.decodeAudioData(await blob.arrayBuffer()); }
@@ -1466,10 +1480,10 @@ const FE = (() => {
     $('fStatus').textContent = 'Listening for the beat of your song…';
     st.an = FILM.analyze(await song()); $('fStatus').textContent = 'Beat found: about ' + Math.round(st.an.bpm) + ' beats per minute.'; save(); return st.an;
   }
-  function save(){ FILM.resetSfx(); try{ store.set('film', { items: st.items.map(i => i.type === 'clone' ? { type: 'clone', name: i.name, members: i.members, splits: i.splits, feather: i.feather, perf: i.perf, off: i.off, dur: i.dur } : ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur })), style: st.style, slow: st.slow, sfx: st.sfx, sfxVol: st.sfxVol, seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
+  function save(){ FILM.resetSfx(); try{ store.set('film', { items: st.items.map(i => i.type === 'clone' ? { type: 'clone', name: i.name, members: i.members, splits: i.splits, feather: i.feather, perf: i.perf, off: i.off, dur: i.dur, frameX: i.frameX } : ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur, frameX: i.frameX })), style: st.style, slow: st.slow, sfx: st.sfx, sfxVol: st.sfxVol, look: st.look, grade: st.grade, seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
   function makeEl(blob){ const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); return v; }
   const meta = v => new Promise(r => { if(v.readyState >= 1) return r(); v.addEventListener('loadedmetadata', r, { once: true }); v.addEventListener('error', r, { once: true }); setTimeout(r, 15000); });
-  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; FILM.F.sfxOn = st.sfx; FILM.F.sfxVol = st.sfxVol; FILM.resetSfx(); }
+  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; FILM.F.sfxOn = st.sfx; FILM.F.sfxVol = st.sfxVol; FILM.F.look = st.look; FILM.F.grade = st.grade; FILM.resetSfx(); }
   function chips(){ $('fStyle').innerHTML = Object.entries(FILM.STYLES).map(([k, v]) => `<button class="chip" data-fs="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join(''); $('fSlow').checked = st.slow; $('fSfx').checked = st.sfx; $('fSfxVol').value = Math.round(st.sfxVol * 100); }
   function list(){
     $('fList').innerHTML = st.items.map((it, i) => it.type === 'clone' ? `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
@@ -1477,6 +1491,7 @@ const FE = (() => {
       <button class="btn alt sm" data-del="${i}" style="flex:none" aria-label="Remove">✕</button></div>` : `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
       <div style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.name)}</b>
       <span class="sub" style="font-size:12px">${mmss(it.dur || 0)} · ${it.checking ? 'Checking for singing…' : it.perf ? (it.off != null ? 'Singing take, starts at ' + mmss(it.off) + ' in the song' + (it.sure ? '' : ' (not sure, check it)') : 'Singing take, place not found') : 'B-roll (no singing to line up)'}</span>
+      <label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Subject position <input type="range" min="0" max="100" data-fx="${i}" value="${Math.round((it.frameX != null ? it.frameX : .5) * 100)}" style="flex:1"></label>
       ${it.perf ? `<label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Starts at (seconds in the song) <input type="number" step="0.1" data-off="${i}" value="${it.off != null ? it.off.toFixed(1) : ''}" style="width:90px;padding:4px 6px"></label>` : ''}</div>
       <button class="btn alt sm" data-perf="${i}" style="flex:none">${it.perf ? 'Make B-roll' : 'Singing take'}</button>
       <button class="btn alt sm" data-del="${i}" style="flex:none" aria-label="Remove">✕</button></div>`).join('');
@@ -1509,17 +1524,42 @@ const FE = (() => {
     d.name = 'Clone shot (' + m.length + ' takes)'; st.items.push(d); st.cloneSel = []; sync(); list(); save();
     $('fAddStatus').textContent = 'Clone shot added. Make the edit again to use it.';
   }
+  const GRADE = [['exposure','Exposure',-.5,.5],['contrast','Contrast',-.5,.6],['saturation','Saturation',-1,1],['warmth','Warmth',-1,1],['tint','Tint',-1,1],['fade','Faded film',0,1],['vignette','Vignette',0,1],['grain','Film grain',0,1]];
+  function gradeUI(){
+    $('fLook').innerHTML = Object.entries(FILM.LOOKS).map(([k, v]) => `<button class="chip" data-lk="${k}" aria-pressed="${st.look === k}">${v}</button>`).join('');
+    $('fGrade').innerHTML = GRADE.map(([k, name, lo, hi]) => `<label for="fg_${k}">${name} <input type="range" id="fg_${k}" data-g="${k}" min="${lo * 100}" max="${hi * 100}" value="${Math.round((st.grade[k] || 0) * 100)}"></label>`).join('');
+  }
+  const group = (title, key, table, cur, all) => `<div class="grp"><div style="display:flex;justify-content:space-between;align-items:center"><p class="sub">${title}</p>${all ? `<button class="btn alt sm" data-all="${key}" style="padding:4px 10px;font-size:12px">Use for all shots</button>` : ''}</div>
+    <div class="chips">${Object.entries(table).map(([k, v]) => `<button class="chip" data-sk="${key}" data-sv="${k}" aria-pressed="${String(cur) === String(k)}">${esc(v)}</button>`).join('')}</div></div>`;
   function cutsUI(){
     const c = FILM.F.cuts; $('fShuffle').disabled = !c.length; $('fPreview').disabled = !c.length;
-    const mv = FILM.MOVES, tr = FILM.TRANS;
-    $('fCuts').innerHTML = c.map((x, i) => `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;border-bottom:1px solid var(--line);padding:4px 0">
-      <b style="width:84px">${mmss(x.a)}–${mmss(x.b)}</b>
-      <select data-cc="${i}" style="flex:1;min-width:110px;padding:4px">${st.items.map((it, k) => `<option value="${k}" ${k === x.clip ? 'selected' : ''}>${esc(it.name)}</option>`).join('')}</select>
-      <select data-cm="${i}" style="padding:4px">${Object.entries(mv).map(([k, v]) => `<option value="${k}" ${k === x.move ? 'selected' : ''}>${v}</option>`).join('')}</select>
-      <select data-ct="${i}" style="padding:4px">${Object.entries(tr).map(([k, v]) => `<option value="${k}" ${k === x.trans ? 'selected' : ''}>${v}</option>`).join('')}</select>
-      <select data-cv="${i}" style="padding:4px">${Object.entries(FILM.CURVES).map(([k, v]) => `<option value="${k}" ${k === (x.curve || 'normal') ? 'selected' : ''}>${v}</option>`).join('')}</select>
-      <select data-cf="${i}" style="padding:4px">${Object.entries(FILM.FX).map(([k, v]) => `<option value="${k}" ${k === (x.fx || 'none') ? 'selected' : ''}>${v}</option>`).join('')}</select>
-      <select data-cs2="${i}" style="padding:4px">${Object.entries(FILM.SFX).map(([k, v]) => `<option value="${k}" ${k === (x.sfx || 'auto') ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`).join('');
+    $('fEditBox').classList.toggle('hide', !c.length); $('fGradeBox').classList.toggle('hide', !c.length);
+    if(!c.length) return; if(st.sel >= c.length) st.sel = 0;
+    $('fCuts').innerHTML = c.map((x, i) => `<button class="chip" data-cut="${i}" aria-pressed="${i === st.sel}" style="flex:none">${i + 1} · ${mmss(x.a)}</button>`).join('');
+    const x = c[st.sel], clips = Object.fromEntries(st.items.map((it, k) => [k, it.name]));
+    $('fShot').innerHTML = `<p class="sub" style="font-size:13px">Shot ${st.sel + 1} of ${c.length}: ${mmss(x.a)} to ${mmss(x.b)} (${(x.b - x.a).toFixed(1)} s)</p>`
+      + group('Footage', 'clip', clips, x.clip, false)
+      + group('Camera move', 'move', FILM.MOVES, x.move, true)
+      + group('Transition into this shot', 'trans', FILM.TRANS, x.trans, true)
+      + group('Speed', 'curve', FILM.CURVES, x.curve || 'normal', true)
+      + group('Effect', 'fx', FILM.FX, x.fx || 'none', true)
+      + group('Colour look', 'look', Object.assign({ inherit: 'Same as whole video' }, FILM.LOOKS), x.look || 'inherit', true)
+      + group('Sound effect', 'sfx', FILM.SFX, x.sfx || 'auto', true);
+    gradeUI(); showShot();
+  }
+  function setShot(i, key, v){ const x = FILM.F.cuts[i]; if(!x) return;
+    if(key === 'clip'){ const it = st.items[+v]; x.clip = +v; if(it.perf && it.off != null){ x.src = x.a - it.off; x.speed = 1; x.curve = 'normal'; } else x.src = 0; }
+    else x[key] = v; }
+  /* Small preview of the selected shot, playing on a loop. */
+  let praf = 0, pt0 = 0;
+  function frameShot(t){ const c = $('fPrev'), x = c.getContext('2d'); FILM.draw(x, c.width, c.height, t, 0); }
+  function showShot(){
+    const c = $('fPrev'); fitCanvas(); const r = cv.width / cv.height; c.width = r >= 1 ? 480 : Math.round(480 * r); c.height = r >= 1 ? Math.round(480 / r) : 480;
+    const x = FILM.F.cuts[st.sel]; if(!x) return; cancelAnimationFrame(praf);
+    if(!st.playing){ const t = x.a + Math.min(.6, (x.b - x.a) / 2); FILM.sync(t, false); let n = 0; const still = () => { frameShot(t); if(++n < 30 && !st.playing) praf = requestAnimationFrame(still); }; still(); $('fPlayShot').textContent = '▶ Play this shot'; return; }
+    $('fPlayShot').textContent = '■ Stop'; pt0 = performance.now();
+    const tick = () => { if(!st.playing || S.step !== 5) { FILM.pauseAll(); return; } const len = Math.max(.3, x.b - x.a + .4), t = x.a - .2 + ((performance.now() - pt0) / 1000) % len; FILM.sync(t, true); frameShot(t); praf = requestAnimationFrame(tick); };
+    tick();
   }
   async function lineUp(it){
     if(!S.file || it.blob.size > 600 * 1048576){ it.perf = false; return; }
@@ -1587,22 +1627,25 @@ const FE = (() => {
   $('fCloneAdd').addEventListener('click', addClone);
   $('fMake').addEventListener('click', () => make(!FILM.F.cuts.length ? false : true));
   $('fShuffle').addEventListener('click', () => make(true));
-  $('fCuts').addEventListener('change', e => { const t = e.target, c = FILM.F.cuts;
-    if(t.dataset.cc != null){ const x = c[+t.dataset.cc], it = st.items[+t.value]; x.clip = +t.value; if(it.perf && it.off != null){ x.src = x.a - it.off; x.speed = 1; x.curve = 'normal'; } else x.src = 0; }
-    if(t.dataset.cm != null) c[+t.dataset.cm].move = t.value;
-    if(t.dataset.ct != null) c[+t.dataset.ct].trans = t.value;
-    if(t.dataset.cv != null) c[+t.dataset.cv].curve = t.value;
-    if(t.dataset.cf != null) c[+t.dataset.cf].fx = t.value;
-    if(t.dataset.cs2 != null) c[+t.dataset.cs2].sfx = t.value;
-    save(); });
+  $('fCuts').addEventListener('click', e => { const b = e.target.closest('[data-cut]'); if(!b) return; st.sel = +b.dataset.cut; cutsUI(); });
+  $('fShot').addEventListener('click', e => {
+    const all = e.target.closest('[data-all]'); if(all){ const k = all.dataset.all, v = FILM.F.cuts[st.sel][k]; FILM.F.cuts.forEach((c, i) => { if(k === 'curve'){ const it = st.items[c.clip]; if(it && it.perf && it.off != null) return; } setShot(i, k, v); }); save(); cutsUI(); return; }
+    const b = e.target.closest('[data-sk]'); if(!b) return; setShot(st.sel, b.dataset.sk, b.dataset.sv); save(); cutsUI(); });
+  $('fPlayShot').addEventListener('click', () => { st.playing = !st.playing; showShot(); });
+  $('fPrevShot').addEventListener('click', () => { if(st.sel > 0){ st.sel--; cutsUI(); } });
+  $('fNextShot').addEventListener('click', () => { if(st.sel < FILM.F.cuts.length - 1){ st.sel++; cutsUI(); } });
+  $('fLook').addEventListener('click', e => { const b = e.target.closest('[data-lk]'); if(!b) return; st.look = b.dataset.lk; sync(); save(); gradeUI(); showShot(); });
+  $('fGrade').addEventListener('input', e => { const r = e.target.closest('[data-g]'); if(!r) return; st.grade[r.dataset.g] = r.value / 100; sync(); save(); if(!st.playing) showShot(); });
+  $('fGradeReset').addEventListener('click', () => { st.grade = {}; st.look = 'none'; sync(); save(); gradeUI(); showShot(); });
+  $('fList').addEventListener('input', e => { const r = e.target.closest('[data-fx]'); if(!r) return; st.items[+r.dataset.fx].frameX = r.value / 100; save(); if(FILM.F.cuts.length && !st.playing) showShot(); });
   $('fPreview').addEventListener('click', () => { S.look.bg = 'film'; changed(); go(3); });
   $('fShotBtn').addEventListener('click', shots);
   $('fShotCopy').addEventListener('click', async () => { try{ await navigator.clipboard.writeText(st.shotText || ''); $('fShotCopy').textContent = 'Copied'; setTimeout(() => $('fShotCopy').textContent = 'Copy shot list', 1500); }catch(e){} });
   return {
     an: () => st.an,
-    enter(){ chips(); list(); cutsUI(); $('fNeedSong').textContent = S.file ? '' : 'Load your song in step 1 first.'; },
+    enter(){ st.playing = false; chips(); list(); cutsUI(); $('fNeedSong').textContent = S.file ? '' : 'Load your song in step 1 first.'; },
     async restore(d){
-      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null; st.sfx = d.sfx !== false; st.sfxVol = d.sfxVol != null ? d.sfxVol : .8;
+      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null; st.sfx = d.sfx !== false; st.sfxVol = d.sfxVol != null ? d.sfxVol : .8; st.look = d.look || 'none'; st.grade = d.grade || {};
       for(const x of (d.items || [])){ if(!x) continue; if(x.type === 'clone'){ st.items.push(Object.assign({}, x)); continue; } if(!x.blob) continue; const it = Object.assign({}, x); it.el = makeEl(x.blob); st.items.push(it); }
       sync(); FILM.F.cuts = Array.isArray(d.cuts) ? d.cuts.filter(c => st.items[c.clip]) : [];
     }
