@@ -479,6 +479,14 @@ details.box:not([open]){gap:0}
       <div class="grp"><p class="sub">Look</p><div class="chips" id="fLook"></div></div>
       <div id="fGrade" style="display:flex;flex-direction:column;gap:6px"></div>
       <button class="btn alt sm" id="fGradeReset">Reset colour</button>
+    </div>
+
+    <div class="box hide" id="fAudioBox">
+      <p><b>6. Audio tracks</b></p>
+      <p class="sub" style="font-size:13px">Add a voice-over, an intro talk, crowd noise or extra music on top of your song. Set when each one starts, its volume and fades.</p>
+      <label for="fSongVol">Song volume <input type="range" id="fSongVol" min="0" max="150" value="100"></label>
+      <label class="drop" for="fTrackFile" style="padding:12px"><b style="font-size:14px">Add an audio track</b><input id="fTrackFile" type="file" accept="audio/*,video/*" multiple></label>
+      <div id="fTracks" style="display:flex;flex-direction:column;gap:8px"></div>
       <button class="btn" id="fPreview" disabled>Preview and export in step 3</button>
     </div>
   </section>
@@ -487,8 +495,8 @@ details.box:not([open]){gap:0}
 <script src="look.js?v=14"></script>
 <script src="animate.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
-<script src="film.js?v=3"></script>
-<script src="export.js?v=15"></script>
+<script src="film.js?v=4"></script>
+<script src="export.js?v=16"></script>
 <script>
 const LANGS = [["hi","hindi"],["te","telugu"],["en","english"],["ta","tamil"],["kn","kannada"],["ml","malayalam"],["mr","marathi"],["pa","punjabi"],["bn","bengali"],["gu","gujarati"],["ur","urdu"],["ne","nepali"],["as","assamese"],["sd","sindhi"],["sa","sanskrit"],["si","sinhala"],["zh","chinese"],["de","german"],["es","spanish"],["ru","russian"],["ko","korean"],["fr","french"],["ja","japanese"],["pt","portuguese"],["tr","turkish"],["pl","polish"],["ca","catalan"],["nl","dutch"],["ar","arabic"],["sv","swedish"],["it","italian"],["id","indonesian"],["fi","finnish"],["vi","vietnamese"],["he","hebrew"],["uk","ukrainian"],["el","greek"],["ms","malay"],["cs","czech"],["ro","romanian"],["da","danish"],["hu","hungarian"],["no","norwegian"],["th","thai"],["hr","croatian"],["bg","bulgarian"],["lt","lithuanian"],["la","latin"],["mi","maori"],["cy","welsh"],["sk","slovak"],["fa","persian"],["lv","latvian"],["sr","serbian"],["az","azerbaijani"],["sl","slovenian"],["et","estonian"],["mk","macedonian"],["br","breton"],["eu","basque"],["is","icelandic"],["hy","armenian"],["mn","mongolian"],["bs","bosnian"],["kk","kazakh"],["sq","albanian"],["sw","swahili"],["gl","galician"],["km","khmer"],["sn","shona"],["yo","yoruba"],["so","somali"],["af","afrikaans"],["oc","occitan"],["ka","georgian"],["be","belarusian"],["tg","tajik"],["am","amharic"],["yi","yiddish"],["lo","lao"],["uz","uzbek"],["fo","faroese"],["ht","haitian creole"],["ps","pashto"],["tk","turkmen"],["nn","nynorsk"],["mt","maltese"],["lb","luxembourgish"],["my","myanmar"],["bo","tibetan"],["tl","tagalog"],["mg","malagasy"],["tt","tatar"],["haw","hawaiian"],["ln","lingala"],["ha","hausa"],["ba","bashkir"],["jw","javanese"],["su","sundanese"]];
 const $ = id => document.getElementById(id);
@@ -961,19 +969,32 @@ function vidClipList(){
 }
 $('vidClips').addEventListener('click', async e => { const b = e.target.closest('[data-vc]'); if(!b) return; const c = A.clips()[+b.dataset.vc]; await setBgVideo(c.blob, 'Clip ' + (+b.dataset.vc + 1)); store.set('bgvid', c.blob); S.look.bg = 'video'; changed(); });
 
-let AC = null, analyser = null, dest = null, playing = false, raf = 0, levelBuf = null;
+let AC = null, analyser = null, dest = null, songGain = null, playing = false, raf = 0, levelBuf = null;
 function audioGraph(){
   if(AC) return;
   AC = new (window.AudioContext || window.webkitAudioContext)();
   const src = AC.createMediaElementSource(audio);
   analyser = AC.createAnalyser(); analyser.fftSize = 256; levelBuf = new Uint8Array(analyser.frequencyBinCount);
   dest = AC.createMediaStreamDestination();
-  src.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
+  songGain = AC.createGain(); src.connect(songGain); songGain.connect(analyser); analyser.connect(AC.destination); analyser.connect(dest);
 }
 function level(){ if(!analyser) return 0; analyser.getByteFrequencyData(levelBuf); let s = 0; for(let i = 0; i < 12; i++) s += levelBuf[i]; return s / (12 * 255); }
 let sfxT = -1;
 function liveSfx(t){ if(S.look.bg !== 'film' || !AC){ sfxT = t; return; } if(sfxT >= 0) FILM.sfxBetween(sfxT, t, FE.an()).forEach(e => { try{ const src = AC.createBufferSource(), g = AC.createGain(); src.buffer = FILM.sfxBuffer(e.kind, AC); g.gain.value = FILM.F.sfxVol * .5; src.connect(g); g.connect(AC.destination); if(dest) g.connect(dest); src.start(AC.currentTime + Math.max(0, e.t - t)); }catch(x){} }); sfxT = t; }
-function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); if(S.look.bg === 'film'){ FILM.sync(audio.currentTime, true); liveSfx(audio.currentTime); } drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
+let liveNodes = [], trT = -1;
+function liveTracks(t, on){
+  if(!on){ liveNodes.forEach(n => { try{ n.stop(); }catch(e){} }); liveNodes = []; trT = -1; if(songGain) songGain.gain.value = 1; return; }
+  const F = FILM.F; if(songGain) songGain.gain.value = (F.songVol != null ? F.songVol : 1) * FILM.duckAt(t);
+  if(!AC || !F.tracks || !F.tracks.length){ trT = t; return; }
+  const jump = trT < 0 || Math.abs(t - trT) > .5; trT = t; if(!jump) return;
+  liveNodes.forEach(n => { try{ n.stop(); }catch(e){} }); liveNodes = [];
+  if(F.tracks.some(tr => !tr._b || !tr._b[AC.sampleRate])){ FILM.decodeTracks(AC.sampleRate).then(() => { trT = -1; }).catch(() => {}); return; }
+  F.tracks.forEach(tr => { const b = tr._b[AC.sampleRate], off = t - tr.start; if(off >= b.duration) return;
+    const src = AC.createBufferSource(), g = AC.createGain(); src.buffer = b; const now = AC.currentTime, at = now + Math.max(0, -off), from = Math.max(0, off);
+    for(let k = 0; k <= 40; k++){ const tt = tr.start + from + (b.duration - from) * k / 40; g.gain.setValueAtTime(FILM.trackGain(tr, tt), at + (tt - tr.start - from)); }
+    src.connect(g); g.connect(AC.destination); if(dest) g.connect(dest); src.start(at, from); liveNodes.push(src); });
+}
+function loop(){ const lv = level(); S.look._ct = null; syncClips(audio.currentTime, true); if(S.look.bg === 'film'){ FILM.sync(audio.currentTime, true); liveSfx(audio.currentTime); liveTracks(audio.currentTime, true); } drawFrame(audio.currentTime, lv, levelBuf); if(playing) raf = requestAnimationFrame(loop); }
 /* While paused on the video step, keep the character moving so you can see the movement you picked. */
 let idleRaf = 0, idleLast = 0;
 function idle(ts){
@@ -991,7 +1012,7 @@ function idle(ts){
 function startIdle(){ if(!idleRaf) idleRaf = requestAnimationFrame(idle); }
 document.addEventListener('visibilitychange', startIdle);
 function startLoop(){ playing = true; cancelAnimationFrame(raf); if(S.look.bg === 'video' && S.look.videoEl) bgVid.play().catch(() => {}); if(S.look.charVid) charVid.play().catch(() => {}); loop(); setTransport(); }
-function stopLoop(){ playing = false; sfxT = -1; cancelAnimationFrame(raf); try{ FILM.pauseAll(); }catch(e){} try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
+function stopLoop(){ playing = false; sfxT = -1; liveTracks(0, false); cancelAnimationFrame(raf); try{ FILM.pauseAll(); }catch(e){} try{ bgVid.pause(); charVid.pause(); S.clips.forEach(c => { c.el.pause(); c.el.loop = false; }); }catch(e){} setTransport(); startIdle(); }
 
 ['vTitle','vArtist','lang','model','paste','script'].forEach(id => $(id).addEventListener('change', saveState));
 ['vTitle','vArtist','paste'].forEach(id => $(id).addEventListener('input', saveState));
@@ -1114,7 +1135,7 @@ $('exGo').addEventListener('click', async () => {
   try{
     const blob = await EXPORT.render({ file: S.file, W, H, fps: EX.fps, q: EX.q, signal: EX.ctl.signal,
       prepare: async t => { const tol = .45 / EX.fps; if(S.look.bg === 'film') await FILM.prepare(t, EX.fps); if(useBg) await seekTo(bgVid, t, tol); if(useChar) await seekTo(charVid, t, tol); if(useClips){ const a = clipAt(t); if(a){ S.look.charVid = a.el; await seekTo(a.el, a.local, tol); } } },
-      mixAudio: S.look.bg === 'film' ? b => FILM.mixInto(b, FE.an()) : null,
+      mixAudio: S.look.bg === 'film' ? async b => { await FILM.decodeTracks(b.sampleRate); return FILM.mixInto(b, FE.an()); } : null,
       draw: (c, W2, H2, t, lv, spec) => { S.look._ct = null; LOOK.frame(c, W2, H2, t, lv, spec, S.look, { lines: S.lines, title: $('vTitle').value.trim(), artist: $('vArtist').value.trim(), lineAt }); },
       preview: src => { try{ ctx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){} },
       onRetry: (k, n, err) => { $('exText').textContent = 'That way of encoding failed on this phone (' + (err && err.message || err) + '). Trying another way, ' + (k + 1) + ' of ' + n + '…'; },
@@ -1470,7 +1491,7 @@ const A = (() => {
 /* ---------- start ---------- */
 /* ---------- step 5: music video from your own footage ---------- */
 const FE = (() => {
-  const st = { items: [], style: 'mixed', slow: false, sfx: true, sfxVol: .8, seed: 1, an: null, busy: false, cloneSel: [], sel: 0, look: 'none', grade: {}, playing: false };
+  const st = { items: [], style: 'mixed', slow: false, sfx: true, sfxVol: .8, seed: 1, an: null, busy: false, cloneSel: [], sel: 0, look: 'none', grade: {}, playing: false, tracks: [], songVol: 1, kfSel: 0, picking: -1 };
   let songBuf = null, songOf = null;
   const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   async function decode(blob, rate){ const ac = new OfflineAudioContext(1, rate, rate); return await ac.decodeAudioData(await blob.arrayBuffer()); }
@@ -1480,10 +1501,10 @@ const FE = (() => {
     $('fStatus').textContent = 'Listening for the beat of your song…';
     st.an = FILM.analyze(await song()); $('fStatus').textContent = 'Beat found: about ' + Math.round(st.an.bpm) + ' beats per minute.'; save(); return st.an;
   }
-  function save(){ FILM.resetSfx(); try{ store.set('film', { items: st.items.map(i => i.type === 'clone' ? { type: 'clone', name: i.name, members: i.members, splits: i.splits, feather: i.feather, perf: i.perf, off: i.off, dur: i.dur, frameX: i.frameX } : ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur, frameX: i.frameX })), style: st.style, slow: st.slow, sfx: st.sfx, sfxVol: st.sfxVol, look: st.look, grade: st.grade, seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
+  function save(){ FILM.resetSfx(); try{ store.set('film', { items: st.items.map(i => i.type === 'clone' ? { type: 'clone', name: i.name, members: i.members, splits: i.splits, feather: i.feather, perf: i.perf, off: i.off, dur: i.dur, frameX: i.frameX } : ({ blob: i.blob, name: i.name, perf: i.perf, off: i.off, sure: i.sure, dur: i.dur, frameX: i.frameX, stab: i.stab, stabOn: i.stabOn, track: i.track, followOn: i.followOn })), style: st.style, slow: st.slow, sfx: st.sfx, sfxVol: st.sfxVol, look: st.look, grade: st.grade, songVol: st.songVol, tracks: st.tracks.map(t => ({ blob: t.blob, name: t.name, start: t.start, vol: t.vol, fadeIn: t.fadeIn, fadeOut: t.fadeOut, duck: t.duck, dur: t.dur })), seed: st.seed, an: st.an, cuts: FILM.F.cuts }); }catch(e){ $('fAddStatus').textContent = 'Could not keep the clips on this phone (not enough space). They work until you close the app.'; } }
   function makeEl(blob){ const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); return v; }
   const meta = v => new Promise(r => { if(v.readyState >= 1) return r(); v.addEventListener('loadedmetadata', r, { once: true }); v.addEventListener('error', r, { once: true }); setTimeout(r, 15000); });
-  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; FILM.F.sfxOn = st.sfx; FILM.F.sfxVol = st.sfxVol; FILM.F.look = st.look; FILM.F.grade = st.grade; FILM.resetSfx(); }
+  function sync(){ FILM.F.clips = st.items; FILM.F.beats = st.an ? st.an.beats : []; FILM.F.sfxOn = st.sfx; FILM.F.sfxVol = st.sfxVol; FILM.F.look = st.look; FILM.F.grade = st.grade; FILM.F.tracks = st.tracks; FILM.F.songVol = st.songVol; FILM.resetSfx(); }
   function chips(){ $('fStyle').innerHTML = Object.entries(FILM.STYLES).map(([k, v]) => `<button class="chip" data-fs="${k}" aria-pressed="${st.style === k}">${v.name}</button>`).join(''); $('fSlow').checked = st.slow; $('fSfx').checked = st.sfx; $('fSfxVol').value = Math.round(st.sfxVol * 100); }
   function list(){
     $('fList').innerHTML = st.items.map((it, i) => it.type === 'clone' ? `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px">
@@ -1492,12 +1513,37 @@ const FE = (() => {
       <div style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.name)}</b>
       <span class="sub" style="font-size:12px">${mmss(it.dur || 0)} · ${it.checking ? 'Checking for singing…' : it.perf ? (it.off != null ? 'Singing take, starts at ' + mmss(it.off) + ' in the song' + (it.sure ? '' : ' (not sure, check it)') : 'Singing take, place not found') : 'B-roll (no singing to line up)'}</span>
       <label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Subject position <input type="range" min="0" max="100" data-fx="${i}" value="${Math.round((it.frameX != null ? it.frameX : .5) * 100)}" style="flex:1"></label>
-      ${it.perf ? `<label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Starts at (seconds in the song) <input type="number" step="0.1" data-off="${i}" value="${it.off != null ? it.off.toFixed(1) : ''}" style="width:90px;padding:4px 6px"></label>` : ''}</div>
+      ${it.perf ? `<label style="flex-direction:row;align-items:center;gap:6px;font-size:12px">Starts at (seconds in the song) <input type="number" step="0.1" data-off="${i}" value="${it.off != null ? it.off.toFixed(1) : ''}" style="width:90px;padding:4px 6px"></label>` : ''}
+      <div class="rowb" style="gap:6px;margin-top:4px"><button class="chip" data-stab="${i}" aria-pressed="${!!it.stabOn}" style="padding:5px 10px;font-size:12px">${it.busy === 'stab' ? 'Steadying… ' + Math.round((it.prog || 0) * 100) + '%' : 'Steady (stabilise)'}</button>
+      <button class="chip" data-fol="${i}" aria-pressed="${!!it.followOn}" style="padding:5px 10px;font-size:12px">${it.busy === 'fol' ? 'Following… ' + Math.round((it.prog || 0) * 100) + '%' : 'Follow me (track)'}</button></div>
+      ${st.picking === i ? `<p class="sub" style="font-size:12px;margin:6px 0 2px">Tap on yourself (your face or chest) in this frame:</p><canvas data-pick="${i}" width="320" height="180" style="width:100%;border-radius:8px;background:#000;cursor:crosshair"></canvas>` : ''}</div>
       <button class="btn alt sm" data-perf="${i}" style="flex:none">${it.perf ? 'Make B-roll' : 'Singing take'}</button>
       <button class="btn alt sm" data-del="${i}" style="flex:none" aria-label="Remove">✕</button></div>`).join('');
     $('fMake').disabled = !st.items.length || !S.file || st.busy;
-    cloneUI();
+    cloneUI(); drawPick();
   }
+  function drawPick(){ const c = document.querySelector('[data-pick]'); if(!c) return; const it = st.items[+c.dataset.pick], el = it.el;
+    const go = () => { it.pickT = el.currentTime; c.height = Math.round(c.width * el.videoHeight / el.videoWidth) || 180; c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); };
+    if(Math.abs(el.currentTime - 1) > .05){ el.addEventListener('seeked', go, { once: true }); el.currentTime = Math.min(1, (el.duration || 2) / 3); } else go(); }
+  function tracksUI(){
+    $('fAudioBox').classList.toggle('hide', !FILM.F.cuts.length); $('fSongVol').value = Math.round(st.songVol * 100);
+    $('fTracks').innerHTML = st.tracks.map((t, i) => `<div style="border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:4px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</b><button class="btn alt sm" data-tdel="${i}" aria-label="Remove">✕</button></div>
+      <label style="flex-direction:row;align-items:center;gap:6px">Starts at (seconds) <input type="number" step="0.1" min="0" data-tk="start" data-ti="${i}" value="${(t.start || 0).toFixed(1)}" style="width:90px;padding:4px 6px"></label>
+      <label>Volume <input type="range" min="0" max="200" data-tk="vol" data-ti="${i}" data-sc="100" value="${Math.round((t.vol != null ? t.vol : 1) * 100)}"></label>
+      <label>Fade in <input type="range" min="0" max="50" data-tk="fadeIn" data-ti="${i}" data-sc="10" value="${Math.round((t.fadeIn || 0) * 10)}"></label>
+      <label>Fade out <input type="range" min="0" max="50" data-tk="fadeOut" data-ti="${i}" data-sc="10" value="${Math.round((t.fadeOut || 0) * 10)}"></label>
+      <label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" data-tk="duck" data-ti="${i}" ${t.duck ? 'checked' : ''} style="width:18px;height:18px">Lower the song while this plays</label></div>`).join('');
+  }
+  function kfUI(x){ if(x.move !== 'custom') return '';
+    if(!Array.isArray(x.kf) || x.kf.length < 2) x.kf = [{ p: 0, z: 1.1, x: -.5, y: 0, r: 0 }, { p: 1, z: 1.4, x: .5, y: 0, r: 0 }];
+    const k = x.kf[Math.min(st.kfSel, x.kf.length - 1)], names = x.kf.length === 3 ? ['Start', 'Middle', 'End'] : ['Start', 'End'];
+    return `<div class="grp" style="border:1px dashed var(--line);border-radius:12px;padding:8px"><p class="sub">Keyframes: set where the camera is at each point</p>
+      <div class="chips">${names.map((n, j) => `<button class="chip" data-kfs="${j}" aria-pressed="${j === Math.min(st.kfSel, x.kf.length - 1)}">${n}</button>`).join('')}<button class="chip" data-kfmid="1">${x.kf.length === 3 ? 'Remove middle' : 'Add middle'}</button></div>
+      <label>Zoom <input type="range" min="100" max="250" data-kf="z" data-ksc="100" value="${Math.round(k.z * 100)}"></label>
+      <label>Left / right <input type="range" min="-100" max="100" data-kf="x" data-ksc="100" value="${Math.round(k.x * 100)}"></label>
+      <label>Up / down <input type="range" min="-100" max="100" data-kf="y" data-ksc="100" value="${Math.round(k.y * 100)}"></label>
+      <label>Rotate <input type="range" min="-20" max="20" data-kf="r" data-ksc="1" value="${Math.round(k.r || 0)}"></label></div>`; }
   function cloneUI(){
     const vids = st.items.map((it, i) => [it, i]).filter(([it]) => it.type !== 'clone');
     st.cloneSel = st.cloneSel.filter(i => st.items[i] && st.items[i].type !== 'clone');
@@ -1539,15 +1585,16 @@ const FE = (() => {
     const x = c[st.sel], clips = Object.fromEntries(st.items.map((it, k) => [k, it.name]));
     $('fShot').innerHTML = `<p class="sub" style="font-size:13px">Shot ${st.sel + 1} of ${c.length}: ${mmss(x.a)} to ${mmss(x.b)} (${(x.b - x.a).toFixed(1)} s)</p>`
       + group('Footage', 'clip', clips, x.clip, false)
-      + group('Camera move', 'move', FILM.MOVES, x.move, true)
+      + group('Camera move', 'move', FILM.MOVES, x.move, true) + kfUI(x)
       + group('Transition into this shot', 'trans', FILM.TRANS, x.trans, true)
       + group('Speed', 'curve', FILM.CURVES, x.curve || 'normal', true)
       + group('Effect', 'fx', FILM.FX, x.fx || 'none', true)
+      + group('Background (cuts you out, no green screen needed)', 'bgfx', FILM.BGFX, x.bgfx || 'none', true)
       + group('Colour look', 'look', Object.assign({ inherit: 'Same as whole video' }, FILM.LOOKS), x.look || 'inherit', true)
       + group('Sound effect', 'sfx', FILM.SFX, x.sfx || 'auto', true);
-    gradeUI(); showShot();
+    gradeUI(); tracksUI(); showShot();
   }
-  function setShot(i, key, v){ const x = FILM.F.cuts[i]; if(!x) return;
+  function setShot(i, key, v){ const x = FILM.F.cuts[i]; if(!x) return; if(key === 'bgfx' && v !== 'none') FILM.segmenter().catch(err => { $('fStatus').textContent = err.message || String(err); });
     if(key === 'clip'){ const it = st.items[+v]; x.clip = +v; if(it.perf && it.off != null){ x.src = x.a - it.off; x.speed = 1; x.curve = 'normal'; } else x.src = 0; }
     else x[key] = v; }
   /* Small preview of the selected shot, playing on a loop. */
@@ -1631,6 +1678,29 @@ const FE = (() => {
   $('fShot').addEventListener('click', e => {
     const all = e.target.closest('[data-all]'); if(all){ const k = all.dataset.all, v = FILM.F.cuts[st.sel][k]; FILM.F.cuts.forEach((c, i) => { if(k === 'curve'){ const it = st.items[c.clip]; if(it && it.perf && it.off != null) return; } setShot(i, k, v); }); save(); cutsUI(); return; }
     const b = e.target.closest('[data-sk]'); if(!b) return; setShot(st.sel, b.dataset.sk, b.dataset.sv); save(); cutsUI(); });
+  $('fShot').addEventListener('input', e => { const r = e.target.closest('[data-kf]'); if(!r) return; const x = FILM.F.cuts[st.sel], k = x.kf[Math.min(st.kfSel, x.kf.length - 1)]; k[r.dataset.kf] = r.value / +r.dataset.ksc; save(); if(!st.playing) showShot(); });
+  $('fShot').addEventListener('click', e => { const s1 = e.target.closest('[data-kfs]'), mid = e.target.closest('[data-kfmid]'), x = FILM.F.cuts[st.sel];
+    if(s1){ st.kfSel = +s1.dataset.kfs; cutsUI(); }
+    if(mid){ if(x.kf.length === 3) x.kf.splice(1, 1); else { const m = FILM.kfAt(x.kf, .5); x.kf.splice(1, 0, { p: .5, z: m.z, x: m.x, y: m.y, r: m.r }); } st.kfSel = 0; save(); cutsUI(); } }, true);
+  $('fList').addEventListener('click', async e => {
+    const sb = e.target.closest('[data-stab]'), fb = e.target.closest('[data-fol]'), pk = e.target.closest('[data-pick]');
+    if(sb){ const it = st.items[+sb.dataset.stab]; if(it.busy) return; if(it.stabOn){ it.stabOn = false; list(); save(); return; }
+      if(!it.stab){ it.busy = 'stab'; list(); try{ await FILM.stabilise(it, p => { it.prog = p; if(Math.round(p * 100) % 5 === 0) list(); }); }catch(err){ $('fAddStatus').textContent = 'Could not steady this clip: ' + (err.message || err); } it.busy = null; }
+      it.stabOn = !!it.stab; list(); save(); if(FILM.F.cuts.length && !st.playing) showShot(); }
+    if(fb){ const i = +fb.dataset.fol, it = st.items[i]; if(it.busy) return; if(it.followOn){ it.followOn = false; list(); save(); return; } st.picking = st.picking === i ? -1 : i; list(); }
+    if(pk){ const i = +pk.dataset.pick, it = st.items[i], r = pk.getBoundingClientRect(), nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
+      st.picking = -1; it.busy = 'fol'; list();
+      try{ await FILM.follow(it, nx, ny, it.pickT || 0, p => { it.prog = p; if(Math.round(p * 100) % 5 === 0) list(); }); it.followOn = true; }catch(err){ $('fAddStatus').textContent = 'Could not follow you in this clip: ' + (err.message || err); }
+      it.busy = null; list(); save(); if(FILM.F.cuts.length && !st.playing) showShot(); }
+  });
+  $('fSongVol').addEventListener('input', () => { st.songVol = $('fSongVol').value / 100; sync(); save(); });
+  $('fTrackFile').addEventListener('change', async e => { const fs = [...e.target.files]; e.target.value = '';
+    for(const f of fs){ const tr = { blob: f, name: f.name || 'Audio', start: Math.max(0, audio.currentTime || 0), vol: 1, fadeIn: .3, fadeOut: .8, duck: true, dur: 0 };
+      try{ const b = await new OfflineAudioContext(2, 48000, 48000).decodeAudioData(await f.arrayBuffer()); tr._b = { 48000: b }; tr.dur = b.duration; st.tracks.push(tr); }catch(err){ $('fStatus').textContent = f.name + ' could not be read as audio.'; } }
+    sync(); tracksUI(); save(); });
+  $('fTracks').addEventListener('input', e => { const r = e.target.closest('[data-tk]'); if(!r) return; const t = st.tracks[+r.dataset.ti], k = r.dataset.tk;
+    t[k] = k === 'duck' ? r.checked : k === 'start' ? Math.max(0, parseFloat(r.value) || 0) : r.value / +r.dataset.sc; sync(); save(); });
+  $('fTracks').addEventListener('click', e => { const d = e.target.closest('[data-tdel]'); if(!d) return; st.tracks.splice(+d.dataset.tdel, 1); sync(); tracksUI(); save(); });
   $('fPlayShot').addEventListener('click', () => { st.playing = !st.playing; showShot(); });
   $('fPrevShot').addEventListener('click', () => { if(st.sel > 0){ st.sel--; cutsUI(); } });
   $('fNextShot').addEventListener('click', () => { if(st.sel < FILM.F.cuts.length - 1){ st.sel++; cutsUI(); } });
@@ -1645,7 +1715,7 @@ const FE = (() => {
     an: () => st.an,
     enter(){ st.playing = false; chips(); list(); cutsUI(); $('fNeedSong').textContent = S.file ? '' : 'Load your song in step 1 first.'; },
     async restore(d){
-      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null; st.sfx = d.sfx !== false; st.sfxVol = d.sfxVol != null ? d.sfxVol : .8; st.look = d.look || 'none'; st.grade = d.grade || {};
+      st.style = d.style || st.style; st.slow = !!d.slow; st.seed = d.seed || 1; st.an = d.an || null; st.sfx = d.sfx !== false; st.sfxVol = d.sfxVol != null ? d.sfxVol : .8; st.look = d.look || 'none'; st.grade = d.grade || {}; st.songVol = d.songVol != null ? d.songVol : 1; st.tracks = (d.tracks || []).filter(t => t && t.blob);
       for(const x of (d.items || [])){ if(!x) continue; if(x.type === 'clone'){ st.items.push(Object.assign({}, x)); continue; } if(!x.blob) continue; const it = Object.assign({}, x); it.el = makeEl(x.blob); st.items.push(it); }
       sync(); FILM.F.cuts = Array.isArray(d.cuts) ? d.cuts.filter(c => st.items[c.clip]) : [];
     }

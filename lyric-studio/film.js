@@ -3,11 +3,12 @@
    and adds camera moves (push-in, pans, tilts, dutch roll, beat punch) and transitions.
    The edit is drawn as a background layer, so lyrics, colour grades and effects go on top. */
 (function(){
-const MOVES = { push:'Slow push-in', pull:'Pull back', crash:'Crash zoom', snap:'Snap zoom on beat', vertigo:'Vertigo zoom', panL:'Pan left', panR:'Pan right', tiltU:'Tilt up', tiltD:'Tilt down', crane:'Crane up', arc:'Orbit arc', dutch:'Dutch roll', focus:'Rack focus', float:'Floating', punch:'Beat punch', shake:'Beat shake', drift:'Handheld', reveal:'Letterbox reveal', still:'Locked off' };
+const MOVES = { push:'Slow push-in', pull:'Pull back', crash:'Crash zoom', snap:'Snap zoom on beat', vertigo:'Vertigo zoom', panL:'Pan left', panR:'Pan right', tiltU:'Tilt up', tiltD:'Tilt down', crane:'Crane up', arc:'Orbit arc', dutch:'Dutch roll', focus:'Rack focus', float:'Floating', punch:'Beat punch', shake:'Beat shake', drift:'Handheld', reveal:'Letterbox reveal', still:'Locked off', custom:'Custom (keyframes)' };
 const TRANS = { cut:'Cut', dissolve:'Cross dissolve', blurx:'Blur dissolve', flash:'Flash', whip:'Whip pan', push:'Push', slide:'Slide up', zoom:'Zoom blur', zoomout:'Zoom out', spin:'Spin', glitch:'Glitch', burn:'Film burn', leak:'Light leak', dip:'Dip to black' };
 const TWO = { dissolve:.45, blurx:.45, push:.3, slide:.3, burn:.5, leak:.5, zoomout:.3 };
 const CURVES = { normal:'Normal speed', slow:'Slow motion (½×)', super:'Super slow (¼×, film at 120 fps)', rampIn:'Ramp: fast to slow', rampOut:'Ramp: slow to fast', velocity:'Velocity (fast, slow on every beat)', freeze:'Freeze frame', reverse:'Reverse' };
 const FX = { none:'No effect', grain:'Film grain', leaks:'Light leaks', flare:'Lens flare', halation:'Halation', glow:'Dreamy glow', prism:'Prism', chroma:'Chromatic fringe', vhs:'VHS tape', echo:'Motion trail', rgb:'RGB split', strobe:'Strobe', mirror:'Mirror', bw:'Black and white' };
+const BGFX = { none:'Keep background', blur:'Blur background (portrait)', pop:'Colour pop (background black and white)', dark:'Dark background', studio:'Studio backdrop', outline:'Neon outline' };
 const LOOKS = { none:'As filmed', teal:'Teal and orange', warm:'Warm film', cold:'Cold steel', sunset:'Golden hour', neon:'Neon night', bleach:'Bleach bypass', noir:'Noir', matrix:'Matrix green', pastel:'Soft pastel', vivid:'Vivid' };
 const LOOKF = { none:['',null], teal:['contrast(1.12) saturate(1.15)',['soft-light','#0e7c86',.32,'overlay','#ff9a3c',.12]], warm:['sepia(.25) saturate(1.1) contrast(1.05)',['soft-light','#ff8a3d',.22]], cold:['saturate(.8) contrast(1.12) hue-rotate(-8deg)',['soft-light','#3d7bff',.24]], sunset:['sepia(.35) saturate(1.3)',['soft-light','#ff6a00',.25]], neon:['saturate(1.5) contrast(1.15)',['soft-light','#c400ff',.22]], bleach:['saturate(.45) contrast(1.35)',null], noir:['grayscale(1) contrast(1.35) brightness(.95)',null], matrix:['saturate(.7) contrast(1.15)',['soft-light','#29ff6a',.3]], pastel:['saturate(.8) brightness(1.08) contrast(.9)',['soft-light','#ffc8e6',.25]], vivid:['saturate(1.45) contrast(1.1)',null] };
 const SFX = { auto:'Sound: automatic', none:'Sound: none', whoosh:'Whoosh', impact:'Impact', hit:'Bass hit', boom:'Deep boom', riser:'Riser', glitch:'Glitch zap', shutter:'Camera shutter', rewind:'Rewind' };
@@ -155,6 +156,7 @@ function sync(t, live){
       else { if(!el.paused) el.pause(); if(Math.abs(el.currentTime - x) > (live ? .05 : .03)) try{ el.currentTime = x; }catch(e){} } });
   });
   F.active = all;
+  const cc = F.cuts[i]; if(needsMask(cc) && !F._segBusy){ F._segBusy = true; segment(sources(cc, t)[0].el).catch(() => {}).then(() => { F._segBusy = false; }); }
 }
 function pauseAll(){ F.clips.forEach(c => { try{ c.el && c.el.pause(); }catch(e){} }); F.active = []; }
 function seek(v, t, tol){ return new Promise(res => { if(!v || !v.duration){ res(); return; } if(Math.abs(v.currentTime - t) < (tol || 1e-3) && v.readyState >= 2){ res(); return; }
@@ -162,7 +164,9 @@ function seek(v, t, tol){ return new Promise(res => { if(!v || !v.duration){ res
 async function prepare(t, fps){ const i = cutAt(t); if(i < 0) return; let list = sources(F.cuts[i], t);
   if(inTwo(i, t)) list = list.concat(sources(F.cuts[i - 1], t).filter(s => !list.some(x => x.el === s.el)));
   F.active.forEach(el => { if(!list.some(s => s.el === el)) try{ el.pause(); }catch(e){} }); F.active = list.map(s => s.el);
-  await Promise.all(list.map(({ el, x }) => { try{ el.pause(); }catch(e){} return seek(el, x, fps ? .45 / fps : 0); })); }
+  await Promise.all(list.map(({ el, x }) => { try{ el.pause(); }catch(e){} return seek(el, x, fps ? .45 / fps : 0); }));
+  const cur = F.cuts[i]; if(needsMask(cur)) try{ await segment(sources(cur, t)[0].el); }catch(e){}
+  if(inTwo(i, t) && needsMask(F.cuts[i - 1])) try{ await segment(sources(F.cuts[i - 1], t)[0].el); }catch(e){} }
 function beatKick(t){ let k = 0; for(const b of F.beats){ if(b > t) break; const d = t - b; if(d < .3) k = Math.max(k, Math.exp(-d * 12)); } return k; }
 
 /* Off-screen canvases for clone shots and effects. */
@@ -183,6 +187,69 @@ function cloneFrame(cl, list){
     o.drawImage(m, 0, 0); }
   return out;
 }
+
+/* ---------- keyframes ---------- */
+function kfAt(kf, p){ if(!kf || !kf.length) return { z: 1.1, x: 0, y: 0, r: 0 }; const k = kf.slice().sort((a, b) => a.p - b.p);
+  if(p <= k[0].p) return k[0]; if(p >= k[k.length - 1].p) return k[k.length - 1];
+  for(let i = 0; i + 1 < k.length; i++){ const a = k[i], b = k[i + 1]; if(p >= a.p && p <= b.p){ const q = ease((p - a.p) / Math.max(1e-3, b.p - a.p)); return { z: a.z + (b.z - a.z) * q, x: a.x + (b.x - a.x) * q, y: a.y + (b.y - a.y) * q, r: a.r + (b.r - a.r) * q }; } }
+  return k[0]; }
+
+/* ---------- stabilise and follow (reads the clip at 10 frames a second) ---------- */
+async function readFrames(el, w, onP, each){
+  const dur = el.duration || 0, rate = 10, n = Math.max(2, Math.floor(dur * rate)), h = Math.round(w * el.videoHeight / el.videoWidth);
+  const c = cnv('ana', w, h), x = c.getContext('2d', { willReadFrequently: true }); const was = el.currentTime; try{ el.pause(); }catch(e){}
+  for(let i = 0; i < n; i++){ await seek(el, i / rate); x.drawImage(el, 0, 0, w, h); const d = x.getImageData(0, 0, w, h).data, g = new Float32Array(w * h);
+    for(let k = 0, j = 0; k < g.length; k++, j += 4) g[k] = d[j] * .3 + d[j + 1] * .59 + d[j + 2] * .11; each(g, w, h, i); onP && onP((i + 1) / n); if(i % 8 === 0) await new Promise(r => setTimeout(r, 0)); }
+  try{ el.currentTime = was; }catch(e){} return { rate, n, w, h };
+}
+function shiftOf(a, b, w, h, R){ let best = 1e18, bx = 0, by = 0; const m = R + 2;
+  for(let dy = -R; dy <= R; dy++) for(let dx = -R; dx <= R; dx++){ let sum = 0;
+    for(let y = m; y < h - m; y += 2) for(let x = m; x < w - m; x += 2){ const v = a[y * w + x] - b[(y + dy) * w + x + dx]; sum += v < 0 ? -v : v; }
+    if(sum < best){ best = sum; bx = dx; by = dy; } }
+  return [bx, by]; }
+async function stabilise(it, onP){
+  let prev = null; const px = [0], py = [0];
+  const info = await readFrames(it.el, 96, onP, (g, w, h, i) => { if(prev){ const [dx, dy] = shiftOf(prev, g, w, h, 10); px.push(px[px.length - 1] + dx); py.push(py[py.length - 1] + dy); } prev = g; });
+  const sm = a => a.map((_, i) => { let s = 0, c = 0; for(let k = Math.max(0, i - 8); k <= Math.min(a.length - 1, i + 8); k++){ s += a[k]; c++; } return s / c; });
+  const sx = sm(px), sy = sm(py);
+  const cl = v => Math.max(-.07, Math.min(.07, v)); it.stab = { rate: info.rate, dx: px.map((v, i) => +cl((sx[i] - v) / info.w).toFixed(4)), dy: py.map((v, i) => +cl((sy[i] - v) / info.w).toFixed(4)) };
+  return it.stab;
+}
+async function follow(it, nx, ny, t0, onP){
+  const frames = []; const info = await readFrames(it.el, 160, onP, g => { const u = new Uint8Array(g.length); for(let k = 0; k < g.length; k++) u[k] = g[k]; frames.push(u); });
+  const { w, h, rate } = info, T = 10, R = 10, n = frames.length, xs = new Array(n), ys = new Array(n);
+  const tplAt = (g, tx, ty) => { const t = new Float32Array(4 * T * T); for(let y = -T; y < T; y++) for(let x = -T; x < T; x++){ const yy = Math.min(h - 1, Math.max(0, ty + y)), xx = Math.min(w - 1, Math.max(0, tx + x)); t[(y + T) * 2 * T + x + T] = g[yy * w + xx]; } return t; };
+  const step = (g, tpl, tx, ty) => { let best = 1e18, bx = tx, by = ty;
+    for(let dy = -R; dy <= R; dy++) for(let dx = -R; dx <= R; dx++){ const cx = tx + dx, cy = ty + dy; if(cx - T < 0 || cy - T < 0 || cx + T >= w || cy + T >= h) continue; let sum = 0;
+      for(let y = -T; y < T; y += 2) for(let x = -T; x < T; x += 2){ const v = tpl[(y + T) * 2 * T + x + T] - g[(cy + y) * w + cx + x]; sum += v < 0 ? -v : v; }
+      if(sum < best){ best = sum; bx = cx; by = cy; } }
+    return [bx, by]; };
+  const k0 = Math.min(n - 1, Math.max(0, Math.round(t0 * rate))), sx = Math.round(nx * w), sy = Math.round(ny * h);
+  xs[k0] = sx; ys[k0] = sy;
+  for(const dir of [1, -1]){ let tx = sx, ty = sy, tpl = tplAt(frames[k0], tx, ty);
+    for(let k = k0 + dir; k >= 0 && k < n; k += dir){ [tx, ty] = step(frames[k], tpl, tx, ty); xs[k] = tx; ys[k] = ty;
+      const fresh = tplAt(frames[k], tx, ty); for(let q = 0; q < tpl.length; q++) tpl[q] = tpl[q] * .6 + fresh[q] * .4; } }
+  const sm = a => a.map((_, i) => { let s = 0, c = 0; for(let k = Math.max(0, i - 4); k <= Math.min(a.length - 1, i + 4); k++){ s += a[k]; c++; } return +(s / c).toFixed(4); });
+  it.track = { rate, x: sm(xs.map(v => v / w)), y: sm(ys.map(v => v / h)) }; return it.track;
+}
+function sampleAt(arr, rate, x){ if(!arr || !arr.length) return 0; const f = Math.min(arr.length - 1, Math.max(0, x * rate)), i = Math.floor(f), k = f - i; return arr[i] + ((arr[i + 1] != null ? arr[i + 1] : arr[i]) - arr[i]) * k; }
+
+/* ---------- background cut-out (MediaPipe selfie segmentation, loaded only when used) ---------- */
+const SEG_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/';
+let segP = null, segQ = Promise.resolve(); const masks = new Map();
+function segmenter(){ if(segP) return segP; segP = new Promise((res, rej) => {
+  const go = async () => { try{ const seg = new window.SelfieSegmentation({ locateFile: f => (F.segBase || SEG_URL) + f }); seg.setOptions({ modelSelection: 1, selfieMode: false });
+    seg.onResults(r => { const m = r.segmentationMask, job = seg._job; if(!job) return; const c = job.canvas; c.width = m.width; c.height = m.height; const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); x.drawImage(m, 0, 0); job.done(); });
+    await seg.initialize(); res(seg); }catch(e){ segP = null; rej(e); } };
+  if(window.SelfieSegmentation) return go();
+  const sc = document.createElement('script'); sc.src = (F.segBase || SEG_URL) + 'selfie_segmentation.js'; sc.crossOrigin = 'anonymous'; sc.onload = go; sc.onerror = () => { segP = null; rej(new Error('Could not load the cut-out tool. Check the internet connection.')); }; document.head.appendChild(sc); });
+  return segP; }
+/* Works out the mask for the frame the video is showing now. */
+function segment(el){ const run = async () => { const seg = await segmenter(); let m = masks.get(el); if(!m){ m = { canvas: document.createElement('canvas'), t: -1 }; masks.set(el, m); }
+    if(Math.abs(m.t - el.currentTime) < 1e-3 && m.ok) return m; const t = el.currentTime;
+    await new Promise(r => { seg._job = { canvas: m.canvas, done: r }; seg.send({ image: el }).catch(() => r()); setTimeout(r, 4000); }); seg._job = null; m.t = t; m.ok = true; return m; };
+  const p = segQ.then(run, run); segQ = p.catch(() => {}); return p; }
+function needsMask(cut){ return cut && cut.bgfx && cut.bgfx !== 'none' && F.clips[cut.clip] && F.clips[cut.clip].type !== 'clone'; }
 
 /* Film grain texture, made once. */
 let grainTex = null;
@@ -232,15 +299,19 @@ function shot(c, W, H, i, t, extra){
     case 'shake': z = 1.2 + .04 * kick; x = kick * .35 * Math.sin(t * 91); y = kick * .3 * Math.cos(t * 77); rot = kick * .02 * Math.sin(t * 63); break;
     case 'drift': z = 1.18; x = .25 * Math.sin(t * .9 + i) + .06 * Math.sin(t * 3.1); y = .2 * Math.cos(t * .7 + i) + .05 * Math.sin(t * 2.3); rot = .006 * Math.sin(t * 1.3); break;
     case 'reveal': z = 1.08 + .06 * e; break;
+    case 'custom': { const k = kfAt(cut.kf, p); z = k.z; x = k.x; y = k.y; rot = (k.r || 0) * Math.PI / 180; break; }
     default: z = 1.06;
   }
   const own = !extra || !extra.noIn;
   if(own && cut.trans === 'zoom' && since < .28){ const q = since / .28; z *= 1 + .6 * Math.pow(1 - q, 2); blur += Math.round(18 * (1 - q)); }
   if(own && cut.trans === 'spin' && since < .3){ const q = since / .3; rot += (1 - ease(q)) * Math.PI / 2; z *= 1 + .3 * (1 - q); blur += Math.round(14 * (1 - q)); }
   if(extra && extra.z) z *= extra.z;
+  if(cl.stabOn && cl.stab && z < 1.14) z = 1.14;
   const s = Math.max(W / iw, H / ih) * z, dw = iw * s, dh = ih * s, sx = Math.max(0, (dw - W) / 2), sy = Math.max(0, (dh - H) / 2);
-  const fxk = cl.frameX != null ? cl.frameX : .5, fyk = cl.frameY != null ? cl.frameY : .5;
+  const lx = list[0].x; let fxk = cl.frameX != null ? cl.frameX : .5, fyk = cl.frameY != null ? cl.frameY : .5;
   let ox = x * sx * 1.6 + (.5 - fxk) * 2 * sx, oy = y * sy * 1.6 + (.5 - fyk) * 2 * sy;
+  if(cl.followOn && cl.track && cut.follow !== false){ ox = x * sx * .6 + (.5 - sampleAt(cl.track.x, cl.track.rate, lx)) * dw; oy = y * sy * .6 + (.45 - sampleAt(cl.track.y, cl.track.rate, lx)) * dh; }
+  if(cl.stabOn && cl.stab){ ox += sampleAt(cl.stab.dx, cl.stab.rate, lx) * dw; oy += sampleAt(cl.stab.dy, cl.stab.rate, lx) * dw; }
   if(own && cut.trans === 'whip' && since < .24){ const q = since / .24; ox += W * .55 * Math.pow(1 - q, 3); blur += Math.round(26 * (1 - q)); }
   if(!(own && cut.trans === 'whip' && since < .24)){ ox = Math.max(-sx, Math.min(sx, ox)); oy = Math.max(-sy, Math.min(sy, oy)); }
   const fx = cut.fx || 'none', lk = LOOKF[cut.look && cut.look !== 'inherit' ? cut.look : (F.look || 'none')] || LOOKF.none;
@@ -260,6 +331,19 @@ function shot(c, W, H, i, t, extra){
   } else if(fx === 'echo'){
     const tr = cnv('trail', W, H), tc = tr.getContext('2d'); if(F._trailCut !== i){ tc.fillStyle = '#000'; tc.fillRect(0, 0, W, H); F._trailCut = i; }
     tc.globalAlpha = .38; paint(tc); tc.globalAlpha = 1; c.drawImage(tr, 0, 0);
+  } else if(needsMask(cut) && masks.get(img) && masks.get(img).ok){
+    const m = masks.get(img).canvas, bgm = cut.bgfx, P = cnv('person', W, H), pc = P.getContext('2d');
+    pc.globalCompositeOperation = 'source-over'; pc.clearRect(0, 0, W, H); paint(pc);
+    const M = cnv('pmask', W, H), mc = M.getContext('2d'); mc.clearRect(0, 0, W, H); mc.save(); if('filter' in mc) mc.filter = 'blur(2px)'; mc.translate(W / 2 + ox, H / 2 + oy); if(rot) mc.rotate(rot); mc.drawImage(m, -dw / 2, -dh / 2, dw, dh); mc.restore();
+    pc.globalCompositeOperation = 'destination-in'; pc.drawImage(M, 0, 0); pc.globalCompositeOperation = 'source-over';
+    if(bgm === 'blur') paint(c, 0, 0, 'blur(' + Math.round(W / 60) + 'px)');
+    else if(bgm === 'pop') paint(c, 0, 0, 'grayscale(1) contrast(1.1)');
+    else if(bgm === 'dark') paint(c, 0, 0, 'brightness(.22) saturate(.6)');
+    else if(bgm === 'studio'){ const g = c.createRadialGradient(W / 2, H * .45, 0, W / 2, H * .45, Math.max(W, H) * .7); g.addColorStop(0, '#5a5f73'); g.addColorStop(1, '#0c0d12'); c.fillStyle = g; c.fillRect(0, 0, W, H); }
+    else paint(c, 0, 0, 'brightness(.35)');
+    if(bgm === 'outline'){ const O = cnv('pout', W, H), oc = O.getContext('2d'); oc.clearRect(0, 0, W, H); oc.drawImage(M, 0, 0); oc.globalCompositeOperation = 'source-in'; oc.fillStyle = F.outline || '#36e2ff'; oc.fillRect(0, 0, W, H); oc.globalCompositeOperation = 'source-over';
+      c.save(); if('filter' in c) c.filter = 'blur(' + Math.round(W / 70) + 'px)'; c.globalCompositeOperation = 'lighter'; c.drawImage(O, 0, 0); c.drawImage(O, 0, 0); c.restore(); }
+    c.drawImage(P, 0, 0);
   } else paint(c);
   tintFill(c, W, H, lk[1]);
   if(fx === 'mirror'){ c.save(); c.translate(W, 0); c.scale(-1, 1); c.drawImage(c.canvas, 0, 0, W / 2, H, 0, 0, W / 2, H); c.restore(); }
@@ -330,10 +414,20 @@ function sfxEvents(an){
   return ev.sort((a, b) => a.t - b.t);
 }
 /* Adds the sound effects to the song for export. */
+/* Audio tracks (voice-over, extra sounds): gain at time t of the song, with fades. */
+function trackGain(tr, t){ const u = t - tr.start, d = tr.dur || 0; if(u < 0 || u > d) return 0; let g = tr.vol != null ? tr.vol : 1;
+  if(tr.fadeIn && u < tr.fadeIn) g *= u / tr.fadeIn; if(tr.fadeOut && d - u < tr.fadeOut) g *= (d - u) / tr.fadeOut; return g; }
+function duckAt(t){ return (F.tracks || []).some(tr => tr.duck && trackGain(tr, t) > 0) ? .45 : 1; }
+async function decodeTracks(sr){ for(const tr of (F.tracks || [])){ tr._b = tr._b || {}; if(!tr._b[sr]) tr._b[sr] = await new OfflineAudioContext(2, sr, sr).decodeAudioData(await tr.blob.arrayBuffer()); tr.dur = tr._b[sr].duration; } }
 function mixInto(buf, an){
-  const ev = sfxEvents(an); if(!ev.length) return buf;
+  const ev = sfxEvents(an), tracks = (F.tracks || []).filter(tr => tr._b && tr._b[buf.sampleRate]), songVol = F.songVol != null ? F.songVol : 1;
+  if(!ev.length && !tracks.length && songVol === 1) return buf;
   const sr = buf.sampleRate, out = new AudioBuffer({ length: buf.length, numberOfChannels: buf.numberOfChannels, sampleRate: sr }), g = F.sfxVol * .5;
-  for(let ch = 0; ch < buf.numberOfChannels; ch++){ const d = buf.getChannelData(ch).slice(); 
+  const duck = tracks.some(tr => tr.duck) ? new Float32Array(Math.ceil(buf.length / 480) + 1).map((_, k) => duckAt(k * 480 / sr)) : null;
+  for(let ch = 0; ch < buf.numberOfChannels; ch++){ const d = buf.getChannelData(ch).slice();
+    if(songVol !== 1 || duck) for(let i = 0; i < d.length; i++) d[i] *= songVol * (duck ? duck[Math.floor(i / 480)] : 1);
+    for(const tr of tracks){ const b = tr._b[sr], src = b.getChannelData(Math.min(ch, b.numberOfChannels - 1)), o0 = Math.floor(tr.start * sr);
+      for(let i = 0; i < src.length; i++){ const j = o0 + i; if(j < 0) continue; if(j >= d.length) break; d[j] += src[i] * trackGain(tr, tr.start + i / sr); } }
     for(const e of ev){ const s = sfxData(e.kind, sr), o0 = Math.floor(e.t * sr); for(let i = 0; i < s.length && o0 + i < d.length; i++) if(o0 + i >= 0) d[o0 + i] += s[i] * g; }
     for(let i = 0; i < d.length; i++){ const x = d[i]; d[i] = x > 1 ? 1 : x < -1 ? -1 : x; }
     out.copyToChannel(d, ch); }
@@ -375,5 +469,5 @@ const TIPS = [
 ];
 
 function cloneStill(cl){ const list = cl.members.map(m => F.clips[m]).filter(it => it && it.el).map(it => ({ el: it.el })); return cloneFrame(cl, list); }
-window.FILM = { cloneStill, LOOKS, MOVES, TRANS, CURVES, FX, SFX, STYLES, TIPS, analyze, findOffset, build, shotList, F, cutAt, sync, pauseAll, prepare, draw, mixInto, sfxBetween, sfxBuffer, sfxData, resetSfx };
+window.FILM = { cloneStill, LOOKS, BGFX, MOVES, kfAt, stabilise, follow, segmenter, segment, decodeTracks, trackGain, duckAt, TRANS, CURVES, FX, SFX, STYLES, TIPS, analyze, findOffset, build, shotList, F, cutAt, sync, pauseAll, prepare, draw, mixInto, sfxBetween, sfxBuffer, sfxData, resetSfx };
 })();

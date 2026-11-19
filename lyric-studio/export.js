@@ -84,7 +84,7 @@ async function renderWith(o, vpick){
   const { W, H, fps } = o;
   const octx = new OfflineAudioContext(2, 48000, 48000);
   let audio = await octx.decodeAudioData(await o.file.arrayBuffer());
-  if(o.mixAudio){ try{ audio = o.mixAudio(audio) || audio; }catch(e){} }
+  if(o.mixAudio){ try{ audio = (await o.mixAudio(audio)) || audio; }catch(e){} }
   const sr = audio.sampleRate, ch = Math.min(2, audio.numberOfChannels), dur = audio.duration;
   const apick = await pickAudio(sr, ch);
   const mono = new Float32Array(audio.length); for(let c = 0; c < audio.numberOfChannels; c++){ const d = audio.getChannelData(c); for(let i = 0; i < d.length; i++) mono[i] += d[i] / audio.numberOfChannels; }
